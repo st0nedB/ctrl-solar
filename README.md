@@ -1,6 +1,6 @@
 # ctrl-solar
 
-[![PyPI version](https://img.shields.io/pypi/v/ctrl-solar.svg)](https://pypi.org/project/ctrl-solar/)
+<!-- [![PyPI version](https://img.shields.io/pypi/v/ctrl-solar.svg)](https://pypi.org/project/ctrl-solar/) -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A Python framework to monitor and control off-grid or grid-tied solar installations via a pluggable architecture.

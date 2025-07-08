@@ -7,7 +7,7 @@ A Python framework to monitor and control off-grid or grid-tied solar installati
 Currently includes support for for Deye inverters and Noah2000 batteries via MQTT integrations, `main.py` shows how to implement a  zero-consumption control to keep your home’s grid draw at zero and avoid over-production.
 
 > [!IMPORTANT]
-> This project is work-in-progress. Expect errors, bugs, and support only on a best-effort basis.
+> This project is work-in-progress. Expect errors and bugs. I'll try to support on a best-effort basis.
 
 ---
 

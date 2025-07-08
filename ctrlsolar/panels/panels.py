@@ -1,0 +1,118 @@
+import requests
+import pandas as pd
+from datetime import datetime, timedelta
+from pvlib.location import Location
+from pvlib.irradiance import get_total_irradiance
+
+
+class OpenMeteoForecast:
+    def __init__(self, latitude: float, longitude: float, timezone: str):
+        self.latitude = latitude
+        self.longitude = longitude
+        self.timezone = timezone 
+        self.location = Location(latitude, longitude, tz=timezone)
+
+
+    def get_forecast(self, date):
+        weather_url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={self.latitude}&longitude={self.longitude}&"
+            "hourly=diffuse_radiation,direct_normal_irradiance,global_tilted_irradiance,shortwave_radiation&"
+            f"timezone={self.timezone}&start_date={date}&end_date={date}"
+        )
+
+        response = requests.get(weather_url)
+        data = response.json()
+        hourly = data["hourly"]
+
+        times = pd.to_datetime(hourly["time"])
+        dhi = pd.Series(hourly["diffuse_radiation"], index=times)
+        dni = pd.Series(hourly["direct_normal_irradiance"], index=times)
+        gti = pd.Series(hourly["global_tilted_irradiance"], index=times)
+        ghi = pd.Series(hourly["shortwave_radiation"], index=times)
+
+        solpos = self.location.get_solarposition(times)
+        df = pd.DataFrame({
+            "times": times,
+            "GHI": ghi,
+            "DNI": dni,
+            "DHI": dhi,
+            "GTI": gti,
+            "apparent_zenith": solpos["apparent_zenith"],
+            "azimuth": solpos["azimuth"],
+        })
+
+        return df
+
+class SolarPanel:
+    def __init__(self, surface_tilt: float, surface_azimuth: float, panel_area: float, panel_efficiency: float):
+        """Initialize a Solar Panel
+
+        Args:
+            surface_tilt (float): Tilting angle of the panel in degree (0 - No tilt, 90 - tilted upwards)
+            surface_azimuth (float): Azimuth direction of panel in degree, 0 = North, 90 = East, 180 = South, 270 = West
+            area (float): Size of the panel in [m^2]
+            efficiency (float): Efficiency of the panel, 0-1.
+
+        """
+        self.surface_tilt = surface_tilt
+        self.surface_azimuth = surface_azimuth
+        self.panel_area = panel_area
+        self.panel_efficiency = panel_efficiency
+
+    def predict_production(self, forecast: pd.DataFrame) -> float:
+
+        poa = get_total_irradiance(
+            surface_tilt=self.surface_tilt,
+            surface_azimuth=self.surface_azimuth,
+            solar_zenith=forecast["apparent_zenith"],
+            solar_azimuth=forecast["azimuth"],
+            dni=forecast["DNI"],
+            ghi=forecast["GHI"],
+            dhi=forecast["DHI"],
+        )
+        p_dc = poa["poa_global"] * self.panel_area * self.panel_efficiency  # in W
+
+        return p_dc.sum()
+
+
+if __name__ == "__main__":
+    date = (datetime.now().date() - timedelta(days=2)).strftime('%Y-%m-%d')
+    print(date)
+    
+    forecast = OpenMeteoForecast(
+        latitude=47.833301,
+        longitude=12.977702,
+        timezone="Europe/Berlin",
+    )
+    df = forecast.get_forecast(date)
+
+    panels = [
+        SolarPanel(
+            surface_tilt=67.5, 
+            surface_azimuth=90,
+            panel_area=1.762*1.134,
+            panel_efficiency=0.22,
+        ),
+        SolarPanel(
+            surface_tilt=67.5, 
+            surface_azimuth=90,
+            panel_area=1.762*1.134,
+            panel_efficiency=0.22,
+        ),
+        SolarPanel(
+            surface_tilt=67.5, 
+            surface_azimuth=90,
+            panel_area=1.762*1.134,
+            panel_efficiency=0.22,
+        ),
+        SolarPanel(
+            surface_tilt=67.5, 
+            surface_azimuth=180,
+            panel_area=1.762*1.134,
+            panel_efficiency=0.22,
+        ),
+    ]
+    p_dc = [panel.predict_production(df) for panel in panels]
+    print(f"Total Power: {sum(p_dc):.2f}")
+

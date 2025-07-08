@@ -1,0 +1,3 @@
+services:
+  solar-controller:
+    restart: unless-stopped

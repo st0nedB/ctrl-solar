@@ -94,7 +94,7 @@ def main():
         last_k=3,
     )
 
-    loop = Loop(controller=controller, update_interval=15)
+    loop = Loop(controller=controller, update_interval=30)
     loop.run()
 
 

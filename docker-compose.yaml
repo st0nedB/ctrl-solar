@@ -2,3 +2,8 @@ services:
   ctrl-solar:
     container_name: ctrl-solar
     restart: unless-stopped
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile

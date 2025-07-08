@@ -1,3 +1,4 @@
 services:
-  solar-controller:
+  ctrl-solar:
+    container_name: ctrl-solar
     restart: unless-stopped

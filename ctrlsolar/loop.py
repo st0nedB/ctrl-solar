@@ -20,7 +20,7 @@ class Loop:
             while True:
                 for cc in self.controller:
                     print()
-                    logger.info(f"Updateing Controller {cc.name}.")
+                    logger.info(f"Update started for {cc.name}.")
                     cc.update()
 
                 time.sleep(self.update_interval)

@@ -1,4 +1,4 @@
-# ctrl-solar
+# ☀️⚡️🔋 ctrl-solar
 
 <!-- [![PyPI version](https://img.shields.io/pypi/v/ctrl-solar.svg)](https://pypi.org/project/ctrl-solar/) -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

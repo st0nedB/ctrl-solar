@@ -11,11 +11,14 @@ from ctrlsolar.controller import ZeroConsumptionController
 from ctrlsolar.loop import Loop
 
 import logging
+from rich.logging import RichHandler
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(show_time=True, show_level=True, show_path=False)]
 )
-
 
 def main():
     root_logger = logging.getLogger()
@@ -91,7 +94,7 @@ def main():
         last_k=3,
     )
 
-    loop = Loop(controller=controller, update_interval=60)
+    loop = Loop(controller=controller, update_interval=15)
     loop.run()
 
 

@@ -63,10 +63,10 @@ class ZeroConsumptionController(Controller):
             logger.warning(f"Reading of `inverter limit` is `None`.")
             skip_update = True
 
-        logger.info("Consumption\t\t{x}".format(x=f"{consumption:.2f}W" if consumption is not None else "N/A"))
-        logger.info("Production\t\t\t{x}".format(x=f"{production:.2f}W" if production is not None else "N/A"))
-        logger.info("Battery\t\t\t{x}".format(x=f"{battery:.2f}W" if battery is not None else "N/A"))
-        logger.info("Production Limit\t\t{x}".format(x=f"{limit:.2f}W" if limit is not None else "N/A"))
+        logger.info("Consumption\t\t{x}".format(x=f"{consumption:.2f} W" if consumption is not None else "N/A"))
+        logger.info("Production\t\t{x}".format(x=f"{production:.2f} W" if production is not None else "N/A"))
+        logger.info("Battery\t\t\t{x}".format(x=f"{battery:.2f} W" if battery is not None else "N/A"))
+        logger.info("Production Limit\t{x}".format(x=f"{limit:.2f} W" if limit is not None else "N/A"))
 
         if not skip_update:
             # consumption = requirement - production
@@ -77,12 +77,12 @@ class ZeroConsumptionController(Controller):
 
             # -> consumption should be zero, so ideally requirement = production
             requirement = consumption + production
-            logger.info(f"Requirement\t\t{requirement:.2f}W")
+            logger.info(f"Requirement\t\t{requirement:.2f} W")
 
             new_limit = limit
             if abs(requirement - production) > self.control_threshold:
                 logger.info(
-                    f"Difference of {requirement-production:.2f}W exceeds {self.control_threshold:.2f}W."
+                    f"Difference of {requirement-production:.2f} W exceeds {self.control_threshold:.2f} W."
                 )
 
                 new_limit = requirement + self.offset
@@ -90,15 +90,15 @@ class ZeroConsumptionController(Controller):
                     logger.info(f"Requirement of {requirement}W exceeds specified maximum of {self.max_power}W.")
                     new_limit = self.max_power
 
-            logger.info(f"Evaluated new limit {new_limit:.2f}W")
+            logger.info(f"Evaluated new limit {new_limit:.2f} W")
 
             if (new_limit != limit) and (new_limit is not None):
                 self.inverter.set_production_limit(new_limit)
-                logger.info(f"Set limit to {new_limit:.2f}W")
+                logger.info(f"Set limit to {new_limit:.2f} W")
 
             else:
                 logger.info(
-                    f"No update required (threshold={self.control_threshold:.2f}W)."
+                    f"No update required (threshold={self.control_threshold:.2f} W)."
                 )
         else:
             logger.info(

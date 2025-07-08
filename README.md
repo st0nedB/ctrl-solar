@@ -55,14 +55,13 @@ docker-compose logs -f --tail=100
 Create a `.env` file in the project root with your broker credentials and parameters:
 
 ```dotenv
-# Transport (e.g. MQTT URL, HTTP endpoint, Modbus settings)
 MQTT_URL=mqtt.example.com
 MQTT_PORT=1883
 MQTT_USER=your_username
 MQTT_PASSWD=your_password
 
 ```
-
+If you are not planning to use the provided MQTT classes you can skip the `.env` file.
 Adapt the main.py with your own Sensor configurations. The current version contains example values.
 ---
 

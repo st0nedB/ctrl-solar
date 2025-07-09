@@ -77,18 +77,13 @@ python main.py
 
 ### With Docker
 
-1. Build and run with Docker Compose:
+1. Adapt the `main.py` with your own setup
 
-   ```bash
-   ```
+2. Build and run with Docker Compose:
 
-docker-compose up -d
-
-````
-1. Stream logs to see colorized updates:
-   ```bash
-docker-compose logs -f --tail=100
-````
+```bash
+  docker compose up -d
+```
 
 ---
 

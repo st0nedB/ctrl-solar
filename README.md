@@ -59,10 +59,11 @@ MQTT_URL=mqtt.example.com
 MQTT_PORT=1883
 MQTT_USER=your_username
 MQTT_PASSWD=your_password
-
 ```
-If you are not planning to use the provided MQTT classes you can skip the `.env` file.
-Adapt the main.py with your own Sensor configurations. The current version contains example values.
+
+> [!NOTE]
+> If you are not planning to use the provided MQTT classes you can skip the `.env` file. Adapt the main.py with your own Sensor configurations. The current version contains example values.
+
 ---
 
 ## 🚀 Usage

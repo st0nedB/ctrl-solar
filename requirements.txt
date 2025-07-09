@@ -4,3 +4,5 @@ python-weather
 suntime
 rich
 requests
+pandas
+pvlib

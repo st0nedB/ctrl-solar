@@ -1,17 +1,21 @@
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
 from pvlib.location import Location
 from pvlib.irradiance import get_total_irradiance
+from datetime import datetime
+from ctrlsolar.io.io import Sensor
+from ctrlsolar.controller.controller import Controller
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OpenMeteoForecast:
     def __init__(self, latitude: float, longitude: float, timezone: str):
         self.latitude = latitude
         self.longitude = longitude
-        self.timezone = timezone 
+        self.timezone = timezone
         self.location = Location(latitude, longitude, tz=timezone)
-
 
     def get_forecast(self, date):
         weather_url = (
@@ -32,20 +36,29 @@ class OpenMeteoForecast:
         ghi = pd.Series(hourly["shortwave_radiation"], index=times)
 
         solpos = self.location.get_solarposition(times)
-        df = pd.DataFrame({
-            "times": times,
-            "GHI": ghi,
-            "DNI": dni,
-            "DHI": dhi,
-            "GTI": gti,
-            "apparent_zenith": solpos["apparent_zenith"],
-            "azimuth": solpos["azimuth"],
-        })
+        df = pd.DataFrame(
+            {
+                "times": times,
+                "GHI": ghi,
+                "DNI": dni,
+                "DHI": dhi,
+                "GTI": gti,
+                "apparent_zenith": solpos["apparent_zenith"],
+                "azimuth": solpos["azimuth"],
+            }
+        )
 
         return df
 
-class SolarPanel:
-    def __init__(self, surface_tilt: float, surface_azimuth: float, panel_area: float, panel_efficiency: float):
+
+class Panel:
+    def __init__(
+        self,
+        surface_tilt: float,
+        surface_azimuth: float,
+        panel_area: float,
+        panel_efficiency: float,
+    ):
         """Initialize a Solar Panel
 
         Args:
@@ -76,43 +89,41 @@ class SolarPanel:
         return p_dc.sum()
 
 
-if __name__ == "__main__":
-    date = (datetime.now().date() - timedelta(days=2)).strftime('%Y-%m-%d')
-    print(date)
-    
-    forecast = OpenMeteoForecast(
-        latitude=47.833301,
-        longitude=12.977702,
-        timezone="Europe/Berlin",
-    )
-    df = forecast.get_forecast(date)
+class ProductionForecast(Controller):
+    name: str = "ProductionForecast"
 
-    panels = [
-        SolarPanel(
-            surface_tilt=67.5, 
-            surface_azimuth=90,
-            panel_area=1.762*1.134,
-            panel_efficiency=0.22,
-        ),
-        SolarPanel(
-            surface_tilt=67.5, 
-            surface_azimuth=90,
-            panel_area=1.762*1.134,
-            panel_efficiency=0.22,
-        ),
-        SolarPanel(
-            surface_tilt=67.5, 
-            surface_azimuth=90,
-            panel_area=1.762*1.134,
-            panel_efficiency=0.22,
-        ),
-        SolarPanel(
-            surface_tilt=67.5, 
-            surface_azimuth=180,
-            panel_area=1.762*1.134,
-            panel_efficiency=0.22,
-        ),
-    ]
-    p_dc = [panel.predict_production(df) for panel in panels]
-    print(f"Total Power: {sum(p_dc):.2f}")
+    def __init__(
+        self, panels: list[Panel], weather: OpenMeteoForecast, sensor_today: Sensor
+    ):
+        self.weather = weather
+        self.panels = panels
+        self.sensor_today = sensor_today
 
+    def forecast_at(self, date):
+        weather = self.weather.get_forecast(date)
+        p_dcs = [x.predict_production(weather) for x in self.panels]
+
+        return sum(p_dcs)
+
+    def production_today(self):
+        return self.sensor_today.get()
+
+    def update(self):
+        today = datetime.now().today().strftime("%Y-%m-%d")
+        forecast = self.forecast_at(today)
+        until_now = self.production_today()
+
+        logger.info(f"--------")
+        logger.info(f"Production Forecast for {today}")
+        logger.info(
+            "Until now\t\t{x}".format(
+                x=f"{1E-3*until_now:.2f} kWh" if until_now is not None else "N/A"
+            )
+        )
+        logger.info(
+            "Estimated\t\t{x}".format(
+                x=f"{1E-3*forecast:.2f} kWh" if forecast is not None else "N/A"
+            )
+        )
+
+        return

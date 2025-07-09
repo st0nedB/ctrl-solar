@@ -1,13 +1,17 @@
 import time
 from ctrlsolar.controller import Controller
+from ctrlsolar.controller.forecast import ProductionForecast
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class Loop:
     def __init__(
-        self, controller: list[Controller] | Controller, update_interval: int = 15
+        self,
+        controller: list[Controller] | Controller,
+        update_interval: int = 15,
     ):
         if isinstance(controller, Controller):
             controller = [controller]

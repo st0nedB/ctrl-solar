@@ -8,21 +8,23 @@ from ctrlsolar.io import Mqtt, MqttConsumer, MqttSensor
 from ctrlsolar.inverter import DeyeSunM160G4
 from ctrlsolar.battery import Noah2000
 from ctrlsolar.controller import ZeroConsumptionController
+from ctrlsolar.controller.forecast import ProductionForecast, OpenMeteoForecast, Panel
 from ctrlsolar.loop import Loop
 
 import logging
 from rich.logging import RichHandler
 
 logging.basicConfig(
-    level="DEBUG",
+    level="INFO",
     format="%(message)s",
     datefmt="[%X]",
-    handlers=[RichHandler(show_time=True, show_level=True, show_path=False)]
+    handlers=[RichHandler(show_time=True, show_level=True, show_path=False)],
 )
+
 
 def main():
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.INFO)
     mqtt = Mqtt(
         broker=os.environ["MQTT_URL"],
         port=int(os.environ["MQTT_PORT"]),
@@ -94,7 +96,36 @@ def main():
         last_k=3,
     )
 
-    loop = Loop(controller=controller, update_interval=30)
+    forecast = ProductionForecast(
+        weather=OpenMeteoForecast(
+            latitude=47.833301,
+            longitude=12.977702,
+            timezone="Europe/Berlin",
+        ),
+        panels=[
+            *[Panel(
+                surface_tilt=67.5,
+                surface_azimuth=90,
+                panel_area=1.762 * 1.134,
+                panel_efficiency=0.22,
+            ) for _ in range(3)],
+            Panel(
+                surface_tilt=67.5,
+                surface_azimuth=180,
+                panel_area=1.762 * 1.134,
+                panel_efficiency=0.22,
+            ),
+        ],
+        sensor_today=MqttSensor(
+            mqtt=mqtt,
+            topic="noah-2000-battery/0PVPH6ZR23QT00D9",
+            filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
+                json.loads(y)["generation_today_kwh"]
+            ),
+        ),
+    )
+
+    loop = Loop(controller=[controller, forecast], update_interval=30)
     loop.run()
 
 

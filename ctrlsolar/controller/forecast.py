@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 from pvlib.location import Location
 from pvlib.irradiance import get_total_irradiance
-from datetime import datetime
+from datetime import datetime, timedelta
 from ctrlsolar.io.io import Sensor
 from ctrlsolar.controller.controller import Controller
 import logging
@@ -93,14 +93,28 @@ class ProductionForecast(Controller):
     name: str = "ProductionForecast"
 
     def __init__(
-        self, panels: list[Panel], weather: OpenMeteoForecast, sensor_today: Sensor
+        self, panels: list[Panel], weather: OpenMeteoForecast, sensor_today: Sensor, max_age: timedelta = timedelta(hours=1)
     ):
         self.weather = weather
         self.panels = panels
         self.sensor_today = sensor_today
+        self.max_age = max_age
+        self._weather_forecast = None
+        self._weather_forecast_from = None
 
     def forecast_at(self, date):
-        weather = self.weather.get_forecast(date)
+        if self._weather_forecast is None:
+            self._weather_forecast = self.weather.get_forecast(date)
+            self._weather_forecast_from = datetime.now()
+        else:
+            if self._weather_forecast_from is not None:
+                if datetime.now() - self._weather_forecast_from > self.max_age:
+                    self._weather_forecast = self.weather.get_forecast(date)
+            else:
+                self._weather_forecast = self.weather.get_forecast(date)
+                self._weather_forecast_from = datetime.now()
+
+        weather = self._weather_forecast
         p_dcs = [x.predict_production(weather) for x in self.panels]
 
         return sum(p_dcs)
@@ -112,9 +126,10 @@ class ProductionForecast(Controller):
         today = datetime.now().today().strftime("%Y-%m-%d")
         forecast = self.forecast_at(today)
         until_now = self.production_today()
+        forecast_age = (datetime.now() - self._weather_forecast_from).total_seconds() // 60 if self._weather_forecast_from is not None else "N/A"
 
         logger.info(f"--------")
-        logger.info(f"Production Forecast for {today}")
+        logger.info(f"Production Forecast for {today} (age {forecast_age:.0f} minutes)")
         logger.info(
             "Until now\t\t{x}".format(
                 x=f"{1E-3*until_now:.2f} kWh" if until_now is not None else "N/A"

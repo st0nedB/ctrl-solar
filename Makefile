@@ -3,7 +3,7 @@ DOCKER_IMAGE ?= ctrl-solar-ctrl-solar:latest
 DOCKER_CONTAINER ?= ctrl-solar
 DOCKERFILE ?= Dockerfile
 
-.PHONY: docker-build
+.PHONY: docker-compose docker-stop docker-remove update all
 docker-compose:
 	@echo "Running Docker compose (build if necessary): $(DOCKER_IMAGE)"
 	docker compose up -d 
@@ -22,8 +22,4 @@ update:
 	@echo "Update from Git: $(DOCKER_Container)"
 	git pull --rebase
 
-all:
-	docker-stop
-	docker-remove
-	git pull --rebase
-	docker-compose
+all: docker-stop docker-remove update docker-compose

@@ -129,7 +129,7 @@ class ProductionForecast(Controller):
         forecast_age = (datetime.now() - self._weather_forecast_from).total_seconds() // 60 if self._weather_forecast_from is not None else "N/A"
 
         logger.info(f"--------")
-        logger.info(f"Production Forecast for {today} (age {forecast_age:.0f} minutes)")
+        logger.info(f"Production Forecast for {today} (age: {forecast_age:.0f} minutes)")
         logger.info(
             "Until now\t\t{x}".format(
                 x=f"{1E-3*until_now:.2f} kWh" if until_now is not None else "N/A"

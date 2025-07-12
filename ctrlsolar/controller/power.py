@@ -41,6 +41,7 @@ class ZeroConsumptionController(Controller):
             battery = None
         else:
             battery = self.battery.get_available_power()
+            soc = self.battery.state_of_charge
             if battery is None:
                 logger.warning(f"Reading of `availale` is `None`.")
                 skip_update = True
@@ -65,7 +66,7 @@ class ZeroConsumptionController(Controller):
 
         logger.info("Consumption\t\t{x}".format(x=f"{consumption:.2f} W" if consumption is not None else "N/A"))
         logger.info("Production\t\t{x}".format(x=f"{production:.2f} W" if production is not None else "N/A"))
-        logger.info("Battery\t\t\t{x}".format(x=f"{battery:.2f} W" if battery is not None else "N/A"))
+        logger.info("Battery\t\t\t{x}".format(x=f"{battery:.2f} W (SoC = {soc}%)" if battery is not None else "N/A"))
         logger.info("Production Limit\t{x}".format(x=f"{limit:.2f} W" if limit is not None else "N/A"))
 
         if not skip_update:

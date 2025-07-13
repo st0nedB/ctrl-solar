@@ -110,9 +110,7 @@ class ProductionForecast(Controller):
             if self._weather_forecast_from is not None:
                 if datetime.now() - self._weather_forecast_from > self.max_age:
                     self._weather_forecast = self.weather.get_forecast(date)
-            else:
-                self._weather_forecast = self.weather.get_forecast(date)
-                self._weather_forecast_from = datetime.now()
+                    self._weather_forecast_from = datetime.now()
 
         weather = self._weather_forecast
         p_dcs = [x.predict_production(weather) for x in self.panels]

@@ -2,7 +2,7 @@ from typing import Optional, Callable, Optional
 from collections import deque
 import paho.mqtt.client as mqtt
 import logging
-from .io import Sensor, Consumer
+from .io import Sensor, Consumer, Node
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,6 @@
-from ctrlsolar.battery.battery import Battery
+from ctrlsolar.battery.battery import DCCoupledBattery
 from ctrlsolar.io.io import Sensor, Consumer
+from ctrlsolar.panels.panels import Panel
 from typing import Optional
 import logging
 
@@ -8,11 +9,9 @@ __all__ = ["Noah2000"]
 logger = logging.getLogger(__name__)
 
 
-class Noah2000(Battery):
+class Noah2000(DCCoupledBattery):
     max_power: float = 800
-    min_soc: float = 10.0
-    max_soc: float = 100.0
-    supported_modes = ["load_first", "battery_first"]
+    mode_mapping = {"battery_first": "battery_first", "load_first": "load_first"}
 
     def __init__(
         self,
@@ -20,34 +19,46 @@ class Noah2000(Battery):
         mode_sensor: Sensor,
         output_power_sensor: Sensor,
         solar_sensor: Sensor,
-        mode_consumer: Optional[Consumer] = None,
-        output_power_consumer: Optional[Consumer] = None,
-        n_batteries: int = 1,
+        charge_limit_sensor: Sensor,
+        discharge_limit_sensor: Sensor,
+        mode_consumer: Consumer,
+        output_power_consumer: Consumer,
+        n_batteries_stacked: int = 1,
+        *args,
+        **kwargs,
     ):
+        super(DCCoupledBattery).__init__(*args, **kwargs)
         self.soc_sensor = state_of_charge_sensor
         self.mode_sensor = mode_sensor
-        self.mode_consumer = mode_consumer
         self.output_power_sensor = output_power_sensor
-        self.output_power_consumer = output_power_consumer
         self.solar_sensor = solar_sensor
-        self.capacity = n_batteries * 2048
+        self.charge_limit_sensor = charge_limit_sensor
+        self.discharge_limit_sensor = discharge_limit_sensor
+
+        self.mode_consumer = mode_consumer
+        self.output_power_consumer = output_power_consumer
+
+        self.capacity = n_batteries_stacked * 2048
 
     @property
-    def state_of_charge(self) -> float | None:
+    def state_of_charge(self) -> float:
         return self.soc_sensor.get()
 
     @property
-    def remaining_charge(self) -> float | None:
-        if self.state_of_charge is None:
-            return None
+    def full(self) -> bool:
+        return self.state_of_charge > self.charge_limit_sensor.get()
 
+    @property
+    def empty(self) -> bool:
+        return self.state_of_charge < self.discharge_limit_sensor.get()
+
+    @property
+    def remaining_charge(self) -> float:
         return self.state_of_charge * self.capacity / 100.0
 
-    def get_available_power(self) -> float | None:
-        if self.state_of_charge is None:
-            return None
-
-        if self.state_of_charge > self.min_soc:
+    @property
+    def available_power(self) -> float:
+        if self.state_of_charge > self.discharge_limit_sensor.get():
             return self.max_power
         else:
             solar_prod = self.solar_sensor.get()
@@ -56,30 +67,33 @@ class Noah2000(Battery):
             else:
                 return 0.0
 
-    def get_mode(self) -> str | None:
-        if self.state_of_charge is None:
-            return None
-
+    @property
+    def mode(self) -> str:
         mode = self.mode_sensor.get()
         return mode
 
-    def set_mode(self, mode: str):
+    @mode.setter
+    def mode(self, mode: str):
         if self.mode_consumer is not None:
             if mode not in self.supported_modes:
                 logger.error(f"Unsupported mode {mode}. Not setting!")
             self.mode_consumer.set(mode)
         return
 
-    def get_output_power_limit(self) -> float:
-        return self.output_power_sensor.get()
+    @property
+    def output_power_limit(self) -> float:
+        if self.mode_sensor.get() == "load_first":
+            return self.output_power_sensor.get()
 
-    def set_output_power_limit(self, power: float):
-        if self.output_power_consumer is not None:
-            if power > self.max_power:
-                power = self.max_power
-                logger.warning(
-                    f"Output power target exceeds batteries configured maximum power. Setting power = {self.max_power}."
-                )
+        return self.max_power
 
-            self.output_power_consumer.set(power)
+    @output_power_limit.setter
+    def output_power_limit(self, power: float):
+        if power > self.max_power:
+            power = self.max_power
+            logger.warning(
+                f"Output power target exceeds batteries configured maximum power. Setting power = {self.max_power}."
+            )
+
+        self.output_power_consumer.set(power)
         return

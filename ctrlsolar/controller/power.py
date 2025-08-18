@@ -4,7 +4,6 @@ from ctrlsolar.io.io import Sensor
 from ctrlsolar.controller.controller import Controller
 from ctrlsolar.battery.battery import Battery
 from typing import Optional
-import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ class ZeroConsumptionController(Controller):
         if self.battery is None:
             battery = None
         else:
-            battery = self.battery.get_available_power()
+            battery = self.battery.available_power
             if battery is None:
                 logger.warning(f"Reading of `availale` is `None`.")
                 skip_update = True

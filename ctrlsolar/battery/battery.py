@@ -80,8 +80,21 @@ class DCCoupledBattery(Battery):
         return [panel.predicted_production_by_hour for panel in self.panels]
 
     def predicted_production_end_hour(self, threshold_W: float = 50.0) -> int:
-        production_end = pd.concat([panel.predicted_production_by_hour > threshold_W for panel in self.panels], axis=1).apply(all, axis=1)
-        last_production_time =  production_end[::-1].idxmax().time() # type: ignore -> idx is a time
+        production_end = pd.concat(
+            [panel.predicted_production_by_hour > threshold_W for panel in self.panels],
+            axis=1,
+        ).apply(all, axis=1)
+        last_production_time = production_end[::-1].idxmax().time()  # type: ignore -> idx is a time
         last_production_hour = int(last_production_time.strftime("%H"))
 
         return last_production_hour
+
+    def predicted_production_start_hour(self, threshold_W: float = 50.0) -> int:
+        production_end = pd.concat(
+            [panel.predicted_production_by_hour > threshold_W for panel in self.panels],
+            axis=1,
+        ).apply(all, axis=1)
+        first_production_time = production_end.idxmax().time()  # type: ignore -> idx is a time
+        first_production_hour = int(first_production_time.strftime("%H"))
+
+        return first_production_hour

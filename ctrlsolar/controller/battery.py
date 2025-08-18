@@ -16,32 +16,36 @@ class DCBatteryOptimizer(Controller):
         soc_threshold: float = 0.95,
         demand_threshold: int = 100,
     ):
+        if not len(batteries) < 2: 
+            raise ValueError(f"The `DCBatteryOptimizer` requires at least two batteries! Found {len(batteries)}.")
+        
         self.batteries = batteries
         self.soc_threshold = soc_threshold
         self.demand_sensor = demand_sensor
         self.demand_threshold = demand_threshold
         self._change_counter: list[int,] = len(self.batteries) * [1]
-        self._current_day = self.today
+        self._last_reset = datetime.now().date()
         self._demand_tracker = deque([False] * 20, maxlen=20)
-
-    @property
-    def today(self):
-        return datetime.now().today().strftime("%Y-%m-%d")
 
     def _update_demand(self):
         demand = self.demand_sensor.get() > self.demand_threshold
         self._demand_tracker.append(demand)
         return
 
-    def _reset_on_new_day(self):
-        if self._current_day != self.today:
-            self._change_counter = len(self.batteries) * [1]
-            self._current_day = self.today
-
-        self._demand_tracker = deque([False] * 20, maxlen=20)
+    def _reset_counter_before_sunrise(self):
+        now_hour = int(datetime.now().today().strftime("%H"))
+        production_start_hours = min(
+            [battery.predicted_production_start_hour() for battery in self.batteries]
+        )
+        if now_hour >= production_start_hours - 1:
+            if self._last_reset < datetime.now().date():
+                self._change_counter = len(self.batteries) * [1]
+                self._last_reset = datetime.now().date()
+                self._demand_tracker = deque([False] * 20, maxlen=20)
         return
 
     def update(self):
+        self._reset_counter_before_sunrise()  # Actually call the reset method!
         # Key insights
         # 1. "Battery first" forwards only the available solar power without discharge
         # 2. "Load first" attempts to satisfy the load, including power
@@ -80,9 +84,6 @@ class DCBatteryOptimizer(Controller):
         self._update_demand()
         if all(self._demand_tracker):
             # There is not discharge/excess solar power
-            battery_first = [
-                battery.mode == "battery_first" for battery in self.batteries
-            ]
             if all(battery_first):
                 # All batteries are in battery first, but excess solar power is no longer sufficient
                 # -> switch the last battery back to provide power
@@ -96,6 +97,7 @@ class DCBatteryOptimizer(Controller):
                     if battery.mode == "battery_first":
                         battery.mode = "load_first"
                         battery.output_power_limit = 800
+                        break  # Only switch one battery at a time
 
             elif all(load_first):
                 # All are in load_first, but solar power is insufficient to cover demand
@@ -107,7 +109,7 @@ class DCBatteryOptimizer(Controller):
                 ]
                 sorted_indices = [
                     index
-                    for index, value in sorted(
+                    for index, _ in sorted(
                         enumerate(production_ends_by_hours), key=lambda x: x[1]
                     )
                 ]

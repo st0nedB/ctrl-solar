@@ -2,7 +2,7 @@ from ctrlsolar.inverter.inverter import Inverter
 from ctrlsolar.io.io import Sensor, Consumer
 from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
 
-__all__ = ["DeyeSunM160G4"]
+__all__ = ["DeyeSunM160G4", "Deye2MqttFactory"]
 
 class DeyeSun(Inverter):
     max_power: float = 1600.0

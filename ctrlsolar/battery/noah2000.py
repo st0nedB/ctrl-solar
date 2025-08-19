@@ -6,7 +6,7 @@ import json
 from typing import Optional
 import logging
 
-__all__ = ["Noah2000"]
+__all__ = ["Noah2000", "NoahMqttFactory"]
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class Noah2000(DCCoupledBattery):
         *args,
         **kwargs,
     ):
-        super(DCCoupledBattery).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.soc_sensor = state_of_charge_sensor
         self.mode_sensor = mode_sensor
         self.output_power_sensor = output_power_sensor
@@ -45,12 +45,31 @@ class Noah2000(DCCoupledBattery):
         return self.soc_sensor.get()
 
     @property
+    def mode(self) -> str:
+        mode = self.mode_sensor.get()
+        if self.mode != "load_first":
+            raise ValueError(f"Unsupported battery mode `{self.mode}` detected.")
+
+        return mode
+
+    @property
     def full(self) -> bool:
-        return self.state_of_charge > self.charge_limit_sensor.get()
+        try:
+            full = self.state_of_charge > self.charge_limit_sensor.get()
+        except TypeError as e:
+            logger.warning(f"{e}")
+            full = False
+
+        return full
 
     @property
     def empty(self) -> bool:
-        return self.state_of_charge < self.discharge_limit_sensor.get()
+        try:
+            empty = self.state_of_charge < self.discharge_limit_sensor.get()
+        except TypeError as e:
+            logger.warning(f"{e}")
+            empty = False
+        return empty
 
     @property
     def remaining_charge(self) -> float:
@@ -59,7 +78,7 @@ class Noah2000(DCCoupledBattery):
     @property
     def discharge_power(self) -> float:
         return self.discharge_power_sensor.get()
-    
+
     @property
     def solar_power(self) -> float:
         return self.solar_sensor.get()
@@ -120,6 +139,13 @@ class NoahMqttFactory:
                 json.loads(y)["solar_w"]
             ),
         )
+        discharge_power_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}",
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["discharge_w"]
+            ),
+        )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"{base_topic}/parameters",
@@ -143,8 +169,10 @@ class NoahMqttFactory:
             state_of_charge_sensor=state_of_charge_sensor,
             output_power_sensor=output_power_sensor,
             solar_sensor=solar_sensor,
-            charge_limit_sensor=charge_limit_sensor,
+            mode_sensor=mode_sensor,
             discharge_limit_sensor=discharge_limit_sensor,
+            discharge_power_sensor=discharge_power_sensor,
+            charge_limit_sensor=charge_limit_sensor,
             output_power_consumer=output_power_consumer,
             n_batteries_stacked=n_batteries_stacked,
             panels=panels,

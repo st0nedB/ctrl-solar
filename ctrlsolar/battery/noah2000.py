@@ -1,6 +1,8 @@
 from ctrlsolar.battery.battery import DCCoupledBattery
 from ctrlsolar.io.io import Sensor, Consumer
 from ctrlsolar.panels.panels import Panel
+from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
+import json
 from typing import Optional
 import logging
 
@@ -10,18 +12,17 @@ logger = logging.getLogger(__name__)
 
 
 class Noah2000(DCCoupledBattery):
-    max_power: float = 800
-    mode_mapping = {"battery_first": "battery_first", "load_first": "load_first"}
+    max_power: int = 800
 
     def __init__(
         self,
         state_of_charge_sensor: Sensor,
         mode_sensor: Sensor,
         output_power_sensor: Sensor,
+        discharge_power_sensor: Sensor,
         solar_sensor: Sensor,
         charge_limit_sensor: Sensor,
         discharge_limit_sensor: Sensor,
-        mode_consumer: Consumer,
         output_power_consumer: Consumer,
         n_batteries_stacked: int = 1,
         *args,
@@ -31,13 +32,12 @@ class Noah2000(DCCoupledBattery):
         self.soc_sensor = state_of_charge_sensor
         self.mode_sensor = mode_sensor
         self.output_power_sensor = output_power_sensor
+        self.discharge_power_sensor = discharge_power_sensor
         self.solar_sensor = solar_sensor
         self.charge_limit_sensor = charge_limit_sensor
         self.discharge_limit_sensor = discharge_limit_sensor
 
-        self.mode_consumer = mode_consumer
         self.output_power_consumer = output_power_consumer
-
         self.capacity = n_batteries_stacked * 2048
 
     @property
@@ -57,35 +57,16 @@ class Noah2000(DCCoupledBattery):
         return self.state_of_charge * self.capacity / 100.0
 
     @property
-    def available_power(self) -> float:
-        if self.state_of_charge > self.discharge_limit_sensor.get():
-            return self.max_power
-        else:
-            solar_prod = self.solar_sensor.get()
-            if solar_prod > 0:
-                return solar_prod
-            else:
-                return 0.0
-
+    def discharge_power(self) -> float:
+        return self.discharge_power_sensor.get()
+    
     @property
-    def mode(self) -> str:
-        mode = self.mode_sensor.get()
-        return mode
-
-    @mode.setter
-    def mode(self, mode: str):
-        if self.mode_consumer is not None:
-            if mode not in self.supported_modes:
-                logger.error(f"Unsupported mode {mode}. Not setting!")
-            self.mode_consumer.set(mode)
-        return
+    def solar_power(self) -> float:
+        return self.solar_sensor.get()
 
     @property
     def output_power_limit(self) -> float:
-        if self.mode_sensor.get() == "load_first":
-            return self.output_power_sensor.get()
-
-        return self.max_power
+        return self.output_power_sensor.get()
 
     @output_power_limit.setter
     def output_power_limit(self, power: float):
@@ -94,6 +75,77 @@ class Noah2000(DCCoupledBattery):
             logger.warning(
                 f"Output power target exceeds batteries configured maximum power. Setting power = {self.max_power}."
             )
+        data = {
+            "charging_limit": self.charge_limit_sensor.get(),
+            "discharge_limit": self.discharge_limit_sensor.get(),
+            "output_power_w": str(int(power)),
+        }
 
-        self.output_power_consumer.set(power)
+        self.output_power_consumer.set(data)
         return
+
+
+class NoahMqttFactory:
+    @classmethod
+    def initialize(
+        cls,
+        mqtt: Mqtt,
+        base_topic: str,
+        panels: list[Panel],
+        n_batteries_stacked: int = 1,
+    ) -> Noah2000:
+        state_of_charge_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=base_topic,
+            filter=lambda y: (lambda x: float(x) if x is not None else 0)(
+                json.loads(y)["soc"]
+            ),
+        )
+        mode_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=base_topic,
+            filter=lambda y: (json.loads(y)["work_mode"]),
+        )
+        output_power_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=base_topic,
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["output_w"]
+            ),
+        )
+        solar_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=base_topic,
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["solar_w"]
+            ),
+        )
+        charge_limit_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}/parameters",
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["charging_limit"]
+            ),
+        )
+        discharge_limit_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}/parameters",
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["discharge_limit"]
+            ),
+        )
+        output_power_consumer = MqttConsumer(
+            mqtt=mqtt,
+            topic=f"{base_topic}/parameters/set",
+        )
+
+        return Noah2000(
+            state_of_charge_sensor=state_of_charge_sensor,
+            output_power_sensor=output_power_sensor,
+            solar_sensor=solar_sensor,
+            charge_limit_sensor=charge_limit_sensor,
+            discharge_limit_sensor=discharge_limit_sensor,
+            output_power_consumer=output_power_consumer,
+            n_batteries_stacked=n_batteries_stacked,
+            panels=panels,
+        )

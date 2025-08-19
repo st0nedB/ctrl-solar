@@ -16,8 +16,7 @@ class ZeroConsumptionController(Controller):
         self,
         inverter: Inverter,
         meter: Sensor,
-        battery: Optional[Battery] = None,
-        control_threshold: float = 30.0,
+        control_threshold: float = 50.0,
         max_power: float = 800.0,
         smoothen: float = 0.5,
         offset: float = -10.0,
@@ -25,7 +24,6 @@ class ZeroConsumptionController(Controller):
     ):
         self.inverter = inverter
         self.meter = meter
-        self.battery = battery
         self.control_threshold = control_threshold
         self.max_power = max_power
         self.smoothen = smoothen
@@ -35,22 +33,7 @@ class ZeroConsumptionController(Controller):
 
     def update(self):
         skip_update = False
-
-        if self.battery is None:
-            battery = None
-        else:
-            battery = self.battery.available_power
-            if battery is None:
-                logger.warning(f"Reading of `availale` is `None`.")
-                skip_update = True
-            else:
-                if battery == 0:
-                    skip_update = True
-
-            soc = self.battery.state_of_charge
-            if self.battery.state_of_charge is None:
-                soc = "N/A"
-
+        
         consumption = self.meter.get()
         if consumption is None:
             logger.warning(f"Reading of `meter` is `None`.")
@@ -74,11 +57,6 @@ class ZeroConsumptionController(Controller):
         logger.info(
             "Production\t\t{x}".format(
                 x=f"{production:.2f} W" if production is not None else "N/A"
-            )
-        )
-        logger.info(
-            "Battery\t\t\t{x}".format(
-                x=f"{battery:.2f} W (SoC = {soc}%)" if battery is not None else "N/A"
             )
         )
         logger.info(

@@ -1,9 +1,10 @@
 from ctrlsolar.inverter.inverter import Inverter
 from ctrlsolar.io.io import Sensor, Consumer
+from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
 
 __all__ = ["DeyeSunM160G4"]
 
-class DeyeSunM160G4(Inverter):
+class DeyeSun(Inverter):
     max_power: float = 1600.0
     limit_per: float = 50.0
     def __init__(
@@ -37,3 +38,31 @@ class DeyeSunM160G4(Inverter):
             limit_per = self.limit_per
 
         return self.production_limit_consumer.set(str(limit_per))
+
+class DeyeSunM160G4(DeyeSun):
+    max_power: float = 1600.0
+    limit_per: float = 50.0
+
+class Deye2MqttFactory:
+    @classmethod
+    def initialize(
+        cls, mqtt: Mqtt, base_topic: str, inverter: type[DeyeSun]
+    ) -> Inverter:
+        power_sensor=MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}/ac/active_power",
+            filter=lambda x: float(x) if x is not None else None,
+        )
+        production_limit_sensor=MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}/settings/active_power_regulation",
+            filter=lambda x: float(x) if x is not None else None,
+        )
+        production_limit_consumer=MqttConsumer(
+            mqtt=mqtt, topic=f"{base_topic}/settings/active_power_regulation/command"
+        )
+        return inverter(
+            power_sensor=power_sensor,
+            production_limit_sensor=production_limit_sensor,
+            production_limit_consumer=production_limit_consumer,
+        )

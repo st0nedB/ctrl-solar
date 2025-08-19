@@ -7,130 +7,93 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# TODO:
+# This controller is not useful as long as the work_mode can't be changed programatically
+
 
 class DCBatteryOptimizer(Controller):
     def __init__(
         self,
         batteries: tuple[DCCoupledBattery],
-        demand_sensor: Sensor,
-        soc_threshold: float = 0.95,
+        full_threshold: float = 0.95,
         demand_threshold: int = 100,
+        discharge_threshold: int = 200,
     ):
-        if not len(batteries) < 2: 
-            raise ValueError(f"The `DCBatteryOptimizer` requires at least two batteries! Found {len(batteries)}.")
-        
+        if not len(batteries) < 2:
+            raise ValueError(
+                f"The `DCBatteryOptimizer` requires at least two batteries! Found {len(batteries)}."
+            )
+
         self.batteries = batteries
-        self.soc_threshold = soc_threshold
-        self.demand_sensor = demand_sensor
+        self.full_threshold = full_threshold
         self.demand_threshold = demand_threshold
-        self._change_counter: list[int,] = len(self.batteries) * [1]
+        self.discharge_threshold = discharge_threshold
         self._last_reset = datetime.now().date()
-        self._demand_tracker = deque([False] * 20, maxlen=20)
+        self._trackers = [deque(20 * [0], maxlen=20) for _ in self.batteries]
 
-    def _update_demand(self):
-        demand = self.demand_sensor.get() > self.demand_threshold
-        self._demand_tracker.append(demand)
-        return
-
-    def _reset_counter_before_sunrise(self):
+    def _reset_before_sunrise(self):
         now_hour = int(datetime.now().today().strftime("%H"))
         production_start_hours = min(
             [battery.predicted_production_start_hour() for battery in self.batteries]
         )
         if now_hour >= production_start_hours - 1:
             if self._last_reset < datetime.now().date():
-                self._change_counter = len(self.batteries) * [1]
                 self._last_reset = datetime.now().date()
-                self._demand_tracker = deque([False] * 20, maxlen=20)
+                for battery in self.batteries:
+                    battery.output_power_limit = battery.max_power
         return
 
+    def log_battery_status(self, battery: DCCoupledBattery, idx: int):
+        logger.info(f"Battery {idx}")
+        logger.info(f"  SoC\t\t{battery.state_of_charge:.1f} %")
+        logger.info(f"  Output Power\t{battery.output_power_limit:.1f} W")
+
     def update(self):
-        self._reset_counter_before_sunrise()  # Actually call the reset method!
+        self._reset_before_sunrise()
+
         # Key insights
-        # 1. "Battery first" forwards only the available solar power without discharge
-        # 2. "Load first" attempts to satisfy the load, including power
-        # 3. Many batteries discharge more efficiently at higher discharge powers
-        # 4. µWRs try to balance their inputs to equal power
+        # 1. Many batteries discharge more efficiently at higher discharge powers
+        # 2. µWRs try to balance their inputs to equal power
 
         # batteries start their day in load_first @ 800W
-        # once full, they switch to "battery first"
-        # if not enough solar power is available anymore (for a defined interval), we switch 1 battery back to "load_first" @ 800W untils its empty (to maximize discharge efficiency) and switch it back to "load_first" @ 800W (new cycle)
+        # once full, they set their output power to the current solar_w - 100
+        # if not enough solar power is less than 200 W (or some threshold) for a defined interval) -> output_power = 0 W
+        # we do this for all batteries, step by step
+        # the last one will discharge until empty
         # once that battery is depleted, we switch the next one back to "load_first" @ 800W
         # at sunrise, we switch all batteries back to "load_first" @ 800W (new cycle)
+        # so in each iteration we check if a battery is above is full (based on the threshold). If so switch its output_power to solar_w - 100
 
-        # so in each iteration we check if a battery is above is full (based on the threshold). If so we switch it to battery first.
-        # we limit the amount of switches to n_switch_per_day to avoid ping-ponging
-        #
+        for bb, (battery, solar_pow) in enumerate(zip(self.batteries, self._trackers)):
+            avg_solar = sum(solar_pow) / len(solar_pow)
 
-        for bb, battery in enumerate(self.batteries):
-            if battery.state_of_charge >= self.soc_threshold:
+            if battery.state_of_charge >= self.full_threshold:
                 logging.info(f"Battery {bb} is now fully charged.")
-                if battery.mode == "load_first":
-                    if self._change_counter[bb] > 0:
-                        battery.mode = "battery_first"
-                        self._change_counter[bb] -= 1
-                        logging.info(
-                            f"Battery {bb} switched to `battery_first` to prevent discharge."
-                        )
-                        continue
+                if battery.solar_power < self.discharge_threshold:
+                    battery.output_power_limit = 0
+                    logger.info(
+                        f"Available solar power of battery {bb} below threshold. Output power limit to 0 to prevent discharge."
+                    )
                 else:
-                    logging.info(
-                        f"Battery {bb} mode is already `battery_first`. No mode change necessary."
+                    battery.output_power_limit = avg_solar - self.demand_threshold
+                    logger.info(
+                        f"Average solar power of {avg_solar} W detected for battery {bb}. Set output power to {avg_solar - self.demand_threshold} W."
                     )
 
-        battery_first = [battery.mode == "battery_first" for battery in self.batteries]
-        load_first = [battery.mode == "load_first" for battery in self.batteries]
-
-        self._update_demand()
-        if all(self._demand_tracker):
-            # There is not discharge/excess solar power
-            if all(battery_first):
-                # All batteries are in battery first, but excess solar power is no longer sufficient
-                # -> switch the last battery back to provide power
-                battery = self.batteries[-1]
-                battery.mode = "load_first"
-                battery.output_power_limit = 800
-            elif any(battery_first):
-                # Not all are in battery first, but load_first batteries are empty
-                # -> switch the next battery back to load_first
-                for battery in reversed(self.batteries):
-                    if battery.mode == "battery_first":
-                        battery.mode = "load_first"
-                        battery.output_power_limit = 800
-                        break  # Only switch one battery at a time
-
-            elif all(load_first):
-                # All are in load_first, but solar power is insufficient to cover demand
-                # -> switch all batteries where production has ended into battery_first to prevent inefficient discharge
-                current_hour = int(datetime.now().today().strftime("%H"))
-                production_ends_by_hours = [
-                    battery.predicted_production_end_hour()
-                    for battery in self.batteries
-                ]
-                sorted_indices = [
-                    index
-                    for index, _ in sorted(
-                        enumerate(production_ends_by_hours), key=lambda x: x[1]
-                    )
-                ]
-
-                for idx in sorted_indices[:-1]:
-                    battery = self.batteries[idx]
-                    if battery.empty:
-                        # don't change mode of empty batteries
-                        continue
-
-                    if battery.predicted_production_end_hour() <= current_hour:
-                        battery.mode = "battery_first"
-                        self._change_counter[idx] -= 1
-                        logging.info(
-                            f"Battery {idx} switched to `battery_first` to prevent inefficient discharge."
+        off = [battery.output_power_limit == 0 for battery in self.batteries]
+        if all(off):
+            logger.warning(f"All DC-Batteries are switched off!")
+            for battery in reversed(self.batteries):
+                if not battery.empty:
+                    if battery.output_power_limit == 0:
+                        battery.output_power_limit = battery.max_power
+                        logger.info(
+                            f"Found non-empty battery and switched power output to {battery.max_power}."
                         )
+                        break
 
-                #   - All batteries are empty and in load_first again, ready for the next cycle
-                #   - The next cycle starts but one battery is still full (battery_first)
-                #       -> do nothing, can continue to be full
+        empty = [battery.empty for battery in self.batteries]
+        if all(empty):
+            logger.info(f"All batteries are empty.")
 
-        # There is enough excess solar power
-        #   -> Do nothing
         return

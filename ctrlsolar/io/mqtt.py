@@ -2,7 +2,7 @@ from typing import Optional, Callable, Optional
 from collections import deque
 import paho.mqtt.client as mqtt
 import logging
-from .io import Sensor, Consumer, Node
+from ctrlsolar.io.io import Sensor, Consumer
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,10 @@ class Mqtt:
 
 class MqttSensor(Sensor):
     def __init__(
-        self, mqtt: Mqtt, topic: str, filter: Callable = lambda x: x,
+        self,
+        mqtt: Mqtt,
+        topic: str,
+        filter: Callable = lambda x: x,
     ):
         self.topic = topic
         self.readings = deque(maxlen=10)
@@ -71,3 +74,4 @@ class MqttConsumer(Consumer):
 
     def set(self, value: str):
         self.mqtt.client.publish(self.topic, value)
+        return

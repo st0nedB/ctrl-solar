@@ -14,13 +14,8 @@ __all__ = [
 
 
 class Battery(ABC):
-    max_power: float  # in [W]
-    discharge_power: float  # in [W]
-    capacity: float  # in [Wh]
-    supported_modes: list[str] = [
-        "battery_first",
-        "load_first",
-    ]  # implementations must map to these
+    max_power: int  # in [W]
+    capacity: int  # in [Wh]
 
     @property
     @abstractmethod
@@ -40,21 +35,6 @@ class Battery(ABC):
     @property
     @abstractmethod
     def remaining_charge(self) -> float:
-        pass
-
-    @property
-    @abstractmethod
-    def available_power(self) -> float:
-        pass
-
-    @property
-    @abstractmethod
-    def mode(self) -> str:
-        pass
-
-    @mode.setter
-    @abstractmethod
-    def mode(self, mode: Literal["battery_first", "load_first"]):
         pass
 
     @property
@@ -98,3 +78,8 @@ class DCCoupledBattery(Battery):
         first_production_hour = int(first_production_time.strftime("%H"))
 
         return first_production_hour
+
+    @property
+    @abstractmethod
+    def solar_power(self) -> float:
+        pass

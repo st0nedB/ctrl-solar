@@ -8,7 +8,8 @@ from ctrlsolar.io import Mqtt, MqttConsumer, MqttSensor
 from ctrlsolar.inverter import DeyeSunM160G4
 from ctrlsolar.battery import Noah2000
 from ctrlsolar.controller import ZeroConsumptionController
-from ctrlsolar.controller.forecast import ProductionForecast, OpenMeteoForecast, Panel
+from ctrlsolar.controller.forecast import ProductionForecast
+from ctrlsolar.panels import Panel, OpenMeteoForecast
 from ctrlsolar.loop import Loop
 
 import logging
@@ -41,35 +42,7 @@ def main():
         ),
     )
 
-    battery = Noah2000(
-        state_of_charge_sensor=MqttSensor(
-            mqtt=mqtt,
-            topic="noah-2000-battery/0PVPH6ZR23QT00D9",
-            filter=lambda y: (lambda x: float(x) if x is not None else 0)(
-                json.loads(y)["soc"]
-            ),
-        ),
-        mode_sensor=MqttSensor(
-            mqtt=mqtt,
-            topic="noah-2000-battery/0PVPH6ZR23QT00D9",
-            filter=lambda y: (json.loads(y)["work_mode"]),
-        ),
-        output_power_sensor=MqttSensor(
-            mqtt=mqtt,
-            topic="noah-2000-battery/0PVPH6ZR23QT00D9",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["output_w"]
-            ),
-        ),
-        solar_sensor=MqttSensor(
-            mqtt=mqtt,
-            topic="noah-2000-battery/0PVPH6ZR23QT00D9",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["solar_w"]
-            ),
-        ),
-        n_batteries=2,
-    )
+    battery_1 = 
 
     inverter = DeyeSunM160G4(
         power_sensor=MqttSensor(
@@ -96,32 +69,32 @@ def main():
         last_k=3,
     )
 
-    forecast = ProductionForecast(
-        weather=OpenMeteoForecast(
-            latitude=47.833301,
-            longitude=12.977702,
-            timezone="Europe/Berlin",
+    weather=OpenMeteoForecast(
+        latitude=47.833301,
+        longitude=12.977702,
+        timezone="Europe/Berlin",
+    )
+    panels=[
+        *[Panel(
+            tilt=67.5,
+            azimuth=90,
+            area=1.762 * 1.134,
+            efficiency=0.22,
+            forecast=weather,
+        ) for _ in range(3)],
+        Panel(
+            tilt=67.5,
+            azimuth=180,
+            area=1.762 * 1.134,
+            efficiency=0.22,
+            forecast=weather,
         ),
-        panels=[
-            *[Panel(
-                surface_tilt=67.5,
-                surface_azimuth=90,
-                panel_area=1.762 * 1.134,
-                panel_efficiency=0.22,
-            ) for _ in range(3)],
-            Panel(
-                surface_tilt=67.5,
-                surface_azimuth=180,
-                panel_area=1.762 * 1.134,
-                panel_efficiency=0.22,
-            ),
-        ],
-        sensor_today=MqttSensor(
-            mqtt=mqtt,
-            topic="noah-2000-battery/0PVPH6ZR23QT00D9",
-            filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-                json.loads(y)["generation_today_kwh"]
-            ),
+    ]
+    sensor_today=MqttSensor(
+        mqtt=mqtt,
+        topic="noah-2000-battery/0PVPH6ZR23QT00D9",
+        filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
+            json.loads(y)["generation_today_kwh"]
         ),
     )
 

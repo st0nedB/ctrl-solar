@@ -23,6 +23,8 @@ class Noah2000(DCCoupledBattery):
         solar_sensor: Sensor,
         charge_limit_sensor: Sensor,
         discharge_limit_sensor: Sensor,
+        todays_production_sensor: Sensor,
+        total_production_sensor: Sensor,
         output_power_limit_sensor: Sensor,
         output_power_limit_consumer: Consumer,
         n_batteries_stacked: int = 1,
@@ -38,6 +40,8 @@ class Noah2000(DCCoupledBattery):
         self.solar_sensor = solar_sensor
         self.charge_limit_sensor = charge_limit_sensor
         self.discharge_limit_sensor = discharge_limit_sensor
+        self.todays_production_sensor = todays_production_sensor
+        self.total_production_sensor = total_production_sensor
         self.output_power_limit_sensor = output_power_limit_sensor
         self.output_power_consumer = output_power_limit_consumer
         self.capacity = n_batteries_stacked * 2048
@@ -87,10 +91,10 @@ class Noah2000(DCCoupledBattery):
     @property
     def discharge_power(self) -> float | None:
         return self.discharge_power_sensor.get()
-    
+
     @property
     def charge_power(self) -> float | None:
-        return self.charge_power_sensor.get()    
+        return self.charge_power_sensor.get()
 
     @property
     def solar_power(self) -> float | None:
@@ -103,6 +107,14 @@ class Noah2000(DCCoupledBattery):
     @property
     def charge_limit(self) -> float | None:
         return self.charge_limit_sensor.get()
+
+    @property
+    def todays_production(self) -> float | None:
+        return self.todays_production_sensor.get()
+
+    @property
+    def total_production(self) -> float | None:
+        return self.total_production_sensor.get()
 
     @property
     def output_power(self) -> float | None:
@@ -206,10 +218,24 @@ class NoahMqttFactory:
                 json.loads(y)["discharge_limit"]
             ),
         )
+        todays_production_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}",
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["generation_today_kwh"]
+            ),
+        )
+        total_production_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}",
+            filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
+                json.loads(y)["generation_total_kwh"]
+            ),
+        )
         output_power_limit_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"{base_topic}/parameters",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+            filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
                 json.loads(y)["output_power_w"]
             ),
         )
@@ -227,6 +253,8 @@ class NoahMqttFactory:
             discharge_power_sensor=discharge_power_sensor,
             charge_power_sensor=charge_power_sensor,
             charge_limit_sensor=charge_limit_sensor,
+            todays_production_sensor=todays_production_sensor,
+            total_production_sensor=total_production_sensor,
             output_power_limit_sensor=output_power_limit_sensor,
             output_power_limit_consumer=output_power_limit_consumer,
             n_batteries_stacked=n_batteries_stacked,

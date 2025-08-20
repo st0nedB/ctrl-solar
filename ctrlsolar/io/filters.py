@@ -14,7 +14,7 @@ class AsymmetricExponentialSmoothing(Sensor):
     def __init__(self, sensor: Sensor, last_k: int = 10):
         self.sensor = sensor
         self.values = deque([None] * last_k, maxlen=last_k)
-        self._interval = deque([0.] * last_k, maxlen=last_k)
+        self._interval = deque([0.0] * last_k, maxlen=last_k)
         self._last_read = time.time()
 
     @property
@@ -47,3 +47,15 @@ class AsymmetricExponentialSmoothing(Sensor):
             filtered_values, alpha_up=alpha_up, alpha_down=alpha_down
         )
         return smoothed
+
+
+class SumSensor(Sensor):
+    def __init__(self, sensors: list[Sensor]):
+        self.sensors = sensors
+
+    def get(self) -> float | None:
+        values = [sensor.get() for sensor in self.sensors]
+        if any(value is None for value in values):
+            return None
+
+        return sum(values)

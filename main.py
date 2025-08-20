@@ -4,7 +4,7 @@ import rootutils
 
 root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
 
-from ctrlsolar.io import Mqtt, MqttSensor, AsymmetricExponentialSmoothing
+from ctrlsolar.io import Mqtt, MqttSensor, AsymmetricExponentialSmoothing, SumSensor
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
 from ctrlsolar.battery import NoahMqttFactory
 from ctrlsolar.controller import (
@@ -103,16 +103,28 @@ def main():
         control_threshold=50.0,
     )
 
-    sensor_today = MqttSensor(
+    yield_sensor_1 = MqttSensor(
         mqtt=mqtt,
         topic="noah-2000-battery/0PVPH6ZR23QT00D9",
         filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
             json.loads(y)["generation_today_kwh"]
         ),
     )
+    yield_sensor_2 = MqttSensor(
+        mqtt=mqtt,
+        topic="noah-2000-battery/0PVPH6ZR23QT019U",
+        filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
+            json.loads(y)["generation_today_kwh"]
+        ),
+    )
+
+    sensor_today = SumSensor(
+        sensors = [yield_sensor_1, yield_sensor_2]
+    )
+
     forecast_controller = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
 
-    loop = Loop(controller=[forecast_controller, battery_controller, power_controller], update_interval=30)
+    loop = Loop(controller=[forecast_controller], update_interval=30)
     loop.run()
 
 

@@ -221,7 +221,7 @@ class NoahMqttFactory:
         todays_production_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"{base_topic}",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+            filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
                 json.loads(y)["generation_today_kwh"]
             ),
         )
@@ -235,7 +235,7 @@ class NoahMqttFactory:
         output_power_limit_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"{base_topic}/parameters",
-            filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
                 json.loads(y)["output_power_w"]
             ),
         )

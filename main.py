@@ -54,7 +54,7 @@ def main():
     panels = [
         *[
             Panel(
-                tilt=67.5,
+                tilt=22.5,
                 azimuth=90,
                 area=1.762 * 1.134,
                 efficiency=0.22,
@@ -63,7 +63,7 @@ def main():
             for _ in range(3)
         ],
         Panel(
-            tilt=67.5,
+            tilt=22.5,
             azimuth=180,
             area=1.762 * 1.134,
             efficiency=0.22,

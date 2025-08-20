@@ -1,8 +1,7 @@
-from ctrlsolar.io.io import Sensor
 from ctrlsolar.battery.battery import DCCoupledBattery
 from ctrlsolar.controller import Controller
+from ctrlsolar.functions import check_properties
 from datetime import datetime
-from collections import deque
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 class DCBatteryOptimizer(Controller):
     name: str = "DCBatteryOptimizer"
+
     def __init__(
         self,
         batteries: list[DCCoupledBattery],
@@ -40,49 +40,88 @@ class DCBatteryOptimizer(Controller):
                     battery.output_power_limit = battery.max_power
         return
 
+    def _check_empty_sensors_readings(self) -> bool:
+        empty_sensors_readings = []
+        for idx, battery in enumerate(self.batteries):
+            check = check_properties(battery)
+            empty = False
+            for key, value in check.items():
+                if value is False:
+                    empty = True
+                    logger.debug(f"Reading of '{key}' is `None` in battery {idx}.")
+
+            if empty:
+                logger.warning(f"Found empty sensor readings in battery {idx}.")
+
+            empty_sensors_readings.append(empty)
+
+        logger.debug(f"Sensor check result for batteries is {empty_sensors_readings}.")
+        return any(empty_sensors_readings)
+
     def log_battery_status(self, battery: DCCoupledBattery, idx: int):
         logger.info(f"Battery {idx}")
-        logger.info("  SoC\t\t{x} %".format(x=f"{battery.state_of_charge:.1f}" if battery.state_of_charge is not None else "N/A"))
-        logger.info("  Output Power\t{x} W".format(x=f"{battery.output_power_limit:.1f}" if battery.output_power_limit is not None else "N/A"))
+        logger.info(
+            "  SoC\t\t{x} %".format(
+                x=(
+                    f"{battery.state_of_charge:.1f}"
+                    if battery.state_of_charge is not None
+                    else "N/A"
+                )
+            )
+        )
+        logger.info(
+            "  Output Power\t{x} W".format(
+                x=(
+                    f"{battery.output_power_limit:.1f}"
+                    if battery.output_power_limit is not None
+                    else "N/A"
+                )
+            )
+        )
 
     def update(self):
         # Key insights
         # 1. Many batteries discharge more efficiently at higher discharge powers
         # 2. µWRs try to balance their inputs to equal power
         self._reset_before_sunrise()
+        skip_update = True
 
-        for bb, battery in enumerate(self.batteries):
-            self.log_battery_status(battery, bb)
-            if battery.state_of_charge is not None: 
-                if battery.state_of_charge / 100 >= self.full_threshold:
-                    logging.info(f"Battery {bb} is now fully charged.")
-                    if battery.solar_power < self.discharge_threshold:
-                        battery.output_power_limit = 0
-                        logger.info(
-                            f"Available solar power of battery {bb} below threshold. Output power limit to 0 to prevent discharge."
-                        )
-                    else:
-                        new_limit = (
-                            battery.output_power_limit
-                            - battery.discharge_power
-                            - self.discharge_backoff
-                        )
-                        battery.output_power_limit = new_limit
-                        logger.info(
-                            f"Discharge of {battery.discharge_power} W detected for battery {bb}. Set output power to {new_limit} W."
-                        )
+        if not self._check_empty_sensors_readings():
+            skip_update = False
+        else:
+            logger.warning(
+                "Found `None` in one or multiple sensor readings. Update is skipped."
+            )
 
-        off = [battery.output_power_limit == 0 for battery in self.batteries]
-        if all(off):
-            logger.warning(f"All DC-Batteries are switched off!")
-            for battery in reversed(self.batteries):
-                if not battery.empty:
-                    if battery.output_power_limit == 0:
-                        battery.output_power_limit = battery.max_power
-                        logger.info(
-                            f"Found non-empty battery and switched power output to {battery.max_power}."
-                        )
-                        break
+        if not skip_update:
+            for bb, battery in enumerate(self.batteries):
+                self.log_battery_status(battery, bb)
+                if battery.state_of_charge is not None:
+                    if battery.state_of_charge / 100 >= self.full_threshold:
+                        logging.info(f"Battery {bb} is now fully charged.")
+                        if battery.solar_power < self.discharge_threshold:  # type: ignore
+                            battery.output_power_limit = 0
+                            logger.info(
+                                f"Available solar power of battery {bb} below threshold. Output power limit to 0 to prevent discharge."
+                            )
+                        else:
+                            new_limit = battery.output_power_limit - battery.discharge_power - self.discharge_backoff  # type: ignore
+                            battery.output_power_limit = new_limit
+                            logger.info(
+                                f"Discharge of {battery.discharge_power} W detected for battery {bb}. Set output power to {new_limit} W."
+                            )
+
+            off = [battery.output_power_limit == 0 for battery in self.batteries]
+            if all(off):
+                logger.warning(f"All DC-Batteries are switched off!")
+                for battery in reversed(self.batteries):
+                    if not battery.empty:
+                        if battery.output_power_limit == 0:
+                            battery.output_power_limit = battery.max_power
+                            logger.info(
+                                f"Found non-empty battery and switched power output to {battery.max_power}."
+                            )
+                            break
 
         empty = [battery.empty for battery in self.batteries]
         if all(empty):

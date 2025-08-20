@@ -28,7 +28,7 @@ logging.basicConfig(
 
 def main():
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
     mqtt = Mqtt(
         broker=os.environ["MQTT_URL"],
         port=int(os.environ["MQTT_PORT"]),
@@ -110,7 +110,7 @@ def main():
     )
     forecast = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
 
-    loop = Loop(controller=[power_controller, battery_controller, forecast], update_interval=30)
+    loop = Loop(controller=[battery_controller], update_interval=30)
     loop.run()
 
 

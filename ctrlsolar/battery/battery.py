@@ -19,27 +19,27 @@ class Battery(ABC):
 
     @property
     @abstractmethod
-    def state_of_charge(self) -> float:
+    def state_of_charge(self) -> float | None:
         pass
 
     @property
     @abstractmethod
-    def full(self) -> bool:
+    def full(self) -> bool | None:
         pass
 
     @property
     @abstractmethod
-    def empty(self) -> bool:
+    def empty(self) -> bool | None:
         pass
 
     @property
     @abstractmethod
-    def remaining_charge(self) -> float:
+    def remaining_charge(self) -> float | None:
         pass
 
     @property
     @abstractmethod
-    def output_power_limit(self) -> float:
+    def output_power_limit(self) -> float | None:
         pass
 
     @output_power_limit.setter
@@ -49,7 +49,7 @@ class Battery(ABC):
     
     @property
     @abstractmethod
-    def discharge_power(self) -> float:
+    def discharge_power(self) -> float | None:
         pass    
 
 
@@ -86,5 +86,5 @@ class DCCoupledBattery(Battery):
 
     @property
     @abstractmethod
-    def solar_power(self) -> float:
+    def solar_power(self) -> float | None:
         pass

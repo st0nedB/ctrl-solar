@@ -18,10 +18,12 @@ class DeyeSun(Inverter):
         self.production_limit_consumer = production_limit_consumer
         return
 
-    def get_production(self) -> float | None:
+    @property
+    def production(self) -> float | None:
         return self.power_sensor.get()
 
-    def get_production_limit(self) -> float | None:
+    @property
+    def production_limit(self) -> float | None:
         reading = self.production_limit_sensor.get()
         if reading is None: 
             return None
@@ -29,7 +31,8 @@ class DeyeSun(Inverter):
         limit_per = float() / 100
         return self.max_power * limit_per
 
-    def set_production_limit(self, limit: float):
+    @production_limit.setter
+    def production_limit(self, limit: float):
         limit_per = round((limit / self.max_power) * 100)
         if limit_per < 1:
             limit_per = 1

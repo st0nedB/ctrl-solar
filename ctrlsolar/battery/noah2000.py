@@ -41,51 +41,78 @@ class Noah2000(DCCoupledBattery):
         self.capacity = n_batteries_stacked * 2048
 
     @property
-    def state_of_charge(self) -> float:
+    def state_of_charge(self) -> float | None:
         return self.soc_sensor.get()
 
     @property
-    def mode(self) -> str:
+    def mode(self) -> str | None:
         mode = self.mode_sensor.get()
-        if self.mode != "load_first":
-            raise ValueError(f"Unsupported battery mode `{self.mode}` detected.")
+        if mode == "battery_first":
+            raise ValueError(
+                f"Unsupported battery mode `{self.mode}` detected. Battery must be in `load_first` mode."
+            )
 
         return mode
 
     @property
-    def full(self) -> bool:
-        try:
-            full = self.state_of_charge > self.charge_limit_sensor.get()
-        except TypeError as e:
-            logger.warning(f"{e}")
-            full = False
+    def full(self) -> bool | None:
+        full = None
+        if self.state_of_charge is not None:
+            if self.charge_limit is not None:
+                full = self.state_of_charge > self.charge_limit
 
         return full
 
     @property
-    def empty(self) -> bool:
-        try:
-            empty = self.state_of_charge < self.discharge_limit_sensor.get()
-        except TypeError as e:
-            logger.warning(f"{e}")
-            empty = False
+    def empty(self) -> bool | None:
+        empty = None
+        if self.state_of_charge is not None:
+            if self.discharge_limit is not None:
+                empty = self.state_of_charge < self.discharge_limit
+
         return empty
 
     @property
-    def remaining_charge(self) -> float:
-        return self.state_of_charge * self.capacity / 100.0
+    def remaining_charge(self) -> float | None:
+        soc = self.state_of_charge
+        cap = self.capacity
+        result = None
+        if (soc is not None) and (cap is not None):
+            result = soc * cap / 100.0
+
+        return result
 
     @property
-    def discharge_power(self) -> float:
+    def discharge_power(self) -> float | None:
         return self.discharge_power_sensor.get()
 
     @property
-    def solar_power(self) -> float:
+    def solar_power(self) -> float | None:
         return self.solar_sensor.get()
 
     @property
-    def output_power_limit(self) -> float:
+    def output_power_limit(self) -> float | None:
         return self.output_power_sensor.get()
+
+    @property
+    def discharge_limit(self) -> float | None:
+        return self.discharge_limit_sensor.get()
+
+    @property
+    def charge_limit(self) -> float | None:
+        return self.charge_limit_sensor.get()
+
+    def _build_valid_payload(self, power: float) -> dict | None:
+        data = None
+        if self.discharge_limit is not None:
+            if self.charge_limit is not None:
+                data = {
+                    "charging_limit": self.charge_limit,
+                    "discharge_limit": self.discharge_limit,
+                    "output_power_w": str(int(power)),
+                }
+
+        return data
 
     @output_power_limit.setter
     def output_power_limit(self, power: float):
@@ -94,13 +121,15 @@ class Noah2000(DCCoupledBattery):
             logger.warning(
                 f"Output power target exceeds batteries configured maximum power. Setting power = {self.max_power}."
             )
-        data = {
-            "charging_limit": self.charge_limit_sensor.get(),
-            "discharge_limit": self.discharge_limit_sensor.get(),
-            "output_power_w": str(int(power)),
-        }
 
-        self.output_power_consumer.set(data)
+        data = self._build_valid_payload(power=power)
+        if data is not None:
+            self.output_power_consumer.set(data)
+        else:
+            logger.warning(
+                f"Could not construct valid payload due to `None` readings from `discharge` and/or `charge` sensor."
+            )
+
         return
 
 

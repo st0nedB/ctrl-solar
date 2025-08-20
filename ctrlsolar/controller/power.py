@@ -39,12 +39,12 @@ class ZeroConsumptionController(Controller):
             logger.warning(f"Reading of `meter` is `None`.")
             skip_update = True
 
-        production = self.inverter.get_production()
+        production = self.inverter.production
         if production is None:
             logger.warning(f"Reading of `inverter prodcution` is `None`.")
             skip_update = True
 
-        limit = self.inverter.get_production_limit()
+        limit = self.inverter.production_limit
         if limit is None:
             logger.warning(f"Reading of `inverter limit` is `None`.")
             skip_update = True
@@ -96,7 +96,7 @@ class ZeroConsumptionController(Controller):
                 logger.info(f"Evaluated new limit {new_limit:.2f} W")
 
                 if (new_limit != limit) and (new_limit is not None):
-                    self.inverter.set_production_limit(new_limit)
+                    self.inverter.production_limit = new_limit
                     logger.info(f"Set limit to {new_limit:.2f} W")
 
             else:

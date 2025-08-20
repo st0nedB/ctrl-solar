@@ -46,11 +46,16 @@ class Battery(ABC):
     @abstractmethod
     def output_power_limit(self, power: float):
         pass
+
+    @property
+    @abstractmethod
+    def output_power(self) -> float | None:
+        pass
     
     @property
     @abstractmethod
     def discharge_power(self) -> float | None:
-        pass    
+        pass
 
 
 class DCCoupledBattery(Battery):

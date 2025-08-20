@@ -102,6 +102,10 @@ class Noah2000(DCCoupledBattery):
     def charge_limit(self) -> float | None:
         return self.charge_limit_sensor.get()
 
+    @property
+    def output_power(self) -> float | None:
+        return self.output_power_sensor.get()
+
     def _build_valid_payload(self, power: float) -> dict | None:
         data = None
         if self.discharge_limit is not None:

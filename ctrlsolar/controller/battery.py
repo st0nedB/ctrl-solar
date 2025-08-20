@@ -61,7 +61,7 @@ class DCBatteryOptimizer(Controller):
     def log_battery_status(self, battery: DCCoupledBattery, idx: int):
         logger.info(f"Battery {idx}")
         logger.info(
-            "  SoC\t\t{x} %".format(
+            "  SoC\t\t\t{x} %".format(
                 x=(
                     f"{battery.state_of_charge:.1f}"
                     if battery.state_of_charge is not None
@@ -70,10 +70,28 @@ class DCBatteryOptimizer(Controller):
             )
         )
         logger.info(
-            "  Output Power\t{x} W".format(
+            "  Power Limit\t\t{x} W".format(
                 x=(
                     f"{battery.output_power_limit:.1f}"
                     if battery.output_power_limit is not None
+                    else "N/A"
+                )
+            )
+        )
+        logger.info(
+            "  Output Power\t\t{x} W".format(
+                x=(
+                    f"{battery.output_power:.1f}"
+                    if battery.output_power is not None
+                    else "N/A"
+                )
+            )
+        )
+        logger.info(
+            "  Discharge Power\t{x} W".format(
+                x=(
+                    f"{battery.discharge_power:.1f}"
+                    if battery.discharge_power is not None
                     else "N/A"
                 )
             )

@@ -130,7 +130,7 @@ class ReduceSupply(Controller):
 
                 if new_limit >= self.max_power:
                     logger.info(
-                        f"Requirement of {requirement}W exceeds specified maximum of {self.max_power}W."
+                        f"Requirement of {requirement}W exceeds specified maximum of {self.max_power:.1f}W."
                     )
                     new_limit = self.max_power
 
@@ -139,7 +139,7 @@ class ReduceSupply(Controller):
                 if abs(new_limit - limit) < self.control_threshold:  # type: ignore
                     # previously set limit is still probably still being set, dont change
                     logger.info(
-                        f"Difference between new limit of {new_limit} W and current limit of {limit} W is smaller than {self.control_threshold} W."
+                        f"Difference between new limit of {new_limit:.1f} W and current limit of {limit:.1f} W is smaller than {self.control_threshold:.1f} W."
                     )
                     new_limit = limit
 

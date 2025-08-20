@@ -3,7 +3,6 @@ from ctrlsolar.io.io import Sensor, Consumer
 from ctrlsolar.panels.panels import Panel
 from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
 import json
-from typing import Optional
 import logging
 
 __all__ = ["Noah2000", "NoahMqttFactory"]

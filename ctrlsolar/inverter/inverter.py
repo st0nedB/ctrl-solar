@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from ctrlsolar.io.io import Sensor, Consumer
 import logging
 
 __all__ = ["Inverter"]

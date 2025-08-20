@@ -27,7 +27,7 @@ logging.basicConfig(
 
 def main():
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(logging.INFO)
     mqtt = Mqtt(
         broker=os.environ["MQTT_URL"],
         port=int(os.environ["MQTT_PORT"]),

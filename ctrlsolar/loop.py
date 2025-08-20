@@ -1,8 +1,6 @@
 import time
 from ctrlsolar.controller import Controller
-from ctrlsolar.controller.forecast import ProductionForecast
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

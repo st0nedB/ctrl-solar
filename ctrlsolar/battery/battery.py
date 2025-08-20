@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Literal
 from ctrlsolar.panels.panels import Panel
-from datetime import datetime
 import pandas as pd
 import logging
 

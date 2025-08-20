@@ -8,7 +8,7 @@ from ctrlsolar.io import Mqtt, MqttSensor
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
 from ctrlsolar.battery import NoahMqttFactory
 from ctrlsolar.controller import (
-    ReduceSupply,
+    ReduceConsumption,
     ProductionForecast,
     DCBatteryOptimizer,
 )
@@ -93,7 +93,7 @@ def main():
     inverter = Deye2MqttFactory.initialize(
         mqtt=mqtt, base_topic="deye", inverter=DeyeSunM160G4
     )
-    power_controller = ReduceSupply(
+    power_controller = ReduceConsumption(
         meter=meter,
         inverter=inverter,
         max_power=800,

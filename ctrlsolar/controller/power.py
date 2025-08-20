@@ -25,8 +25,8 @@ class SmoothConsumption:
         return smoothed
 
 
-class ReduceSupply(Controller):
-    name: str = "ReduceSupply"
+class ReduceConsumption(Controller):
+    name: str = "ReduceConsumption"
 
     def __init__(
         self,

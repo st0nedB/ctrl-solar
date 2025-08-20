@@ -132,22 +132,41 @@ class DCBatteryOptimizer(Controller):
         if not skip_update:
             for bb, battery in enumerate(self.batteries):
                 self.log_battery_status(battery, bb)
-                if battery.state_of_charge is not None:
-                    if battery.state_of_charge / 100 >= self.full_threshold:
-                        logging.info(f"Battery {bb} is now fully charged.")
-                        if battery.solar_power < self.discharge_threshold:  # type: ignore
-                            battery.output_power_limit = 0
-                            logger.info(
-                                f"Available solar power of battery {bb} below threshold. Output power limit to 0 to prevent discharge."
-                            )
-                        else:
-                            new_limit = battery.output_power_limit - battery.discharge_power - self.discharge_backoff  # type: ignore
-                            battery.output_power_limit = new_limit
-                            logger.info(
-                                f"Discharge of {battery.discharge_power} W detected for battery {bb}. Set output power to {new_limit} W."
-                            )
+                if battery.state_of_charge / 100 >= self.full_threshold:  # type: ignore
+                    logging.info(f"Battery {bb} is now fully charged.")
+                    if battery.solar_power < self.discharge_threshold:  # type: ignore
+                        battery.output_power_limit = 0
+                        logger.info(
+                            f"Available solar power of battery {bb} below threshold. Output power limit to 0 to prevent discharge."
+                        )
+                    else:
+                        new_limit = battery.output_power_limit - battery.discharge_power - self.discharge_backoff  # type: ignore
+                        battery.output_power_limit = new_limit
+                        logger.info(
+                            f"Discharge of {battery.discharge_power} W detected for battery {bb}. Set output power to {new_limit} W."
+                        )
 
             off = [battery.output_power_limit == 0 for battery in self.batteries]
+            discharging = [battery.discharge_power > self.discharge_threshold for battery in self.batteries]  # type: ignore
+
+            if sum(discharging) > 1:
+                logger.info(
+                    f"Detected more than one battery discharging over threshold of {self.discharge_threshold} W."
+                )
+                # find the indices which sort the batteries by their available solar power
+                solar_powers = [battery.solar_power for battery in self.batteries]
+                sort_idx = [
+                    x for x, y in sorted(enumerate(solar_powers), key=lambda x: x[1])  # type: ignore
+                ]
+
+                # switch off the one with the lowest solar power
+                for idx in sort_idx:
+                    battery = self.batteries[idx]
+                    if battery.discharge_power > self.discharge_threshold:  # type: ignore
+                        battery.output_power_limit = 0
+                        logger.info(f"Stopped discharging on battery {idx}.")
+                        break
+
             if all(off):
                 logger.warning(f"All DC-Batteries are switched off!")
                 for battery in reversed(self.batteries):

@@ -125,8 +125,8 @@ class Noah2000(DCCoupledBattery):
         if self.discharge_limit is not None:
             if self.charge_limit is not None:
                 data = {
-                    "charging_limit": self.charge_limit,
-                    "discharge_limit": self.discharge_limit,
+                    "charging_limit": str(self.charge_limit),
+                    "discharge_limit": str(self.discharge_limit),
                     "output_power_w": str(int(power)),
                 }
 
@@ -145,8 +145,9 @@ class Noah2000(DCCoupledBattery):
             )
 
         data = self._build_valid_payload(power=power)
+        logger.debug(f"Attempting to set payload {json.dumps(data)}")
         if data is not None:
-            self.output_power_consumer.set(data)
+            self.output_power_consumer.set(json.dumps(data))
         else:
             logger.warning(
                 f"Could not construct valid payload due to `None` readings from `discharge` and/or `charge` sensor."

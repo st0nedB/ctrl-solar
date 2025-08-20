@@ -90,7 +90,7 @@ def main():
         batteries=[battery_1, battery_2],
         full_threshold=0.95,
         discharge_backoff=100,
-        discharge_threshold=200,
+        discharge_threshold=800,
     )
 
     inverter = Deye2MqttFactory.initialize(

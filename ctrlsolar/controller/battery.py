@@ -79,6 +79,15 @@ class DCBatteryOptimizer(Controller):
             )
         )
         logger.info(
+            "  Solar Power\t\t{x} W".format(
+                x=(
+                    f"{battery.solar_power:.1f}"
+                    if battery.solar_power is not None
+                    else "N/A"
+                )
+            )
+        )        
+        logger.info(
             "  Output Power\t\t{x} W".format(
                 x=(
                     f"{battery.output_power:.1f}"

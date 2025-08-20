@@ -1,28 +1,10 @@
-from collections import deque
 from ctrlsolar.inverter import Inverter
 from ctrlsolar.io.io import Sensor
 from ctrlsolar.controller.controller import Controller
-from ctrlsolar.functions import check_properties, exponential_smoothing
+from ctrlsolar.functions import check_properties
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class SmoothConsumption:
-    def __init__(self, sensor: Sensor, last_k: int = 10):
-        self.sensor = sensor
-        self.values = deque([None] * last_k, maxlen=last_k)
-
-    def get(self) -> float | None:
-        self.values.append(self.sensor.get())
-        logger.debug(f"Current values in smoothing window:\t {list(self.values)}")
-        filtered_values = [v for v in self.values if v is not None]
-        if not filtered_values:
-            return None
-
-        smoothed = exponential_smoothing(filtered_values)
-
-        return smoothed
 
 
 class ReduceConsumption(Controller):
@@ -34,26 +16,18 @@ class ReduceConsumption(Controller):
         meter: Sensor,
         control_threshold: float = 50.0,
         max_power: float = 800.0,
-        smoothen: bool = True,
-        last_k: int = 10,
         offset: float = -10.0,
     ):
         self.inverter = inverter
         self.control_threshold = control_threshold
         self.max_power = max_power
-        self.smoothen = smoothen
-        self.last_k = last_k
         self.offset = offset
         self.active = True
-
-        if smoothen:
-            self.meter = SmoothConsumption(sensor=meter, last_k=last_k)
-        else:
-            self.meter = meter
+        self.meter = meter
 
     def _check_empty_sensors_readings(self) -> bool:
         empty_sensors_readings = []
-        for idx, entity in enumerate([self.inverter, self.meter]):
+        for entity in [self.inverter, self.meter]:
             check = check_properties(entity)
             empty = False
             for key, value in check.items():
@@ -70,12 +44,6 @@ class ReduceConsumption(Controller):
 
     def update(self):
         skip_update = True
-        if self.smoothen:
-            logger.info(f"Consumption smoothing enabled with `last_k={self.last_k}`.")
-        else:
-            logger.info(
-                f"Consumption smoothing disabled. Ignoring value passed for `last_k`."
-            )
 
         if not self._check_empty_sensors_readings():
             skip_update = False
@@ -130,7 +98,7 @@ class ReduceConsumption(Controller):
 
                 if new_limit >= self.max_power:
                     logger.info(
-                        f"Requirement of {requirement}W exceeds specified maximum of {self.max_power:.1f}W."
+                        f"Requirement of {requirement:.1f} W exceeds specified maximum of {self.max_power:.1f}W."
                     )
                     new_limit = self.max_power
 

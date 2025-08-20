@@ -4,7 +4,7 @@ import rootutils
 
 root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
 
-from ctrlsolar.io import Mqtt, MqttSensor
+from ctrlsolar.io import Mqtt, MqttSensor, AsymmetricExponentialSmoothing
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
 from ctrlsolar.battery import NoahMqttFactory
 from ctrlsolar.controller import (
@@ -25,7 +25,6 @@ logging.basicConfig(
     handlers=[RichHandler(show_time=True, show_level=True, show_path=False)],
 )
 
-
 def main():
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
@@ -43,6 +42,10 @@ def main():
         filter=lambda y: (lambda x: float(x) if x is not None else None)(
             json.loads(y)["ENERGY"]["Power"]
         ),
+    )
+    meter_smooth = AsymmetricExponentialSmoothing(
+        sensor=meter,
+        last_k=10,
     )
 
     weather = OpenMeteoForecast(
@@ -94,11 +97,10 @@ def main():
         mqtt=mqtt, base_topic="deye", inverter=DeyeSunM160G4
     )
     power_controller = ReduceConsumption(
-        meter=meter,
+        meter=meter_smooth,
         inverter=inverter,
         max_power=800,
         control_threshold=50.0,
-        last_k=10,
     )
 
     sensor_today = MqttSensor(

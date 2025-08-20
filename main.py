@@ -4,7 +4,7 @@ import rootutils
 
 root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
 
-from ctrlsolar.io import Mqtt, MqttSensor, AsymmetricExponentialSmoothing, SumSensor
+from ctrlsolar.io import Mqtt, MqttSensor, ExponentialSmoothing, SumSensor
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
 from ctrlsolar.battery import NoahMqttFactory
 from ctrlsolar.controller import (
@@ -43,7 +43,7 @@ def main():
             json.loads(y)["ENERGY"]["Power"]
         ),
     )
-    meter_smooth = AsymmetricExponentialSmoothing(
+    meter_smooth = ExponentialSmoothing(
         sensor=meter,
         last_k=10,
     )

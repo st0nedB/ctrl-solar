@@ -28,7 +28,7 @@ class DeyeSun(Inverter):
         if reading is None: 
             return None
 
-        limit_per = float() / 100
+        limit_per = float(reading) / 100
         return self.max_power * limit_per
 
     @production_limit.setter

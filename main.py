@@ -8,7 +8,7 @@ from ctrlsolar.io import Mqtt, MqttSensor
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
 from ctrlsolar.battery import NoahMqttFactory
 from ctrlsolar.controller import (
-    ZeroConsumptionController,
+    ReduceSupply,
     ProductionForecast,
     DCBatteryOptimizer,
 )
@@ -93,12 +93,12 @@ def main():
     inverter = Deye2MqttFactory.initialize(
         mqtt=mqtt, base_topic="deye", inverter=DeyeSunM160G4
     )
-    power_controller = ZeroConsumptionController(
+    power_controller = ReduceSupply(
         meter=meter,
         inverter=inverter,
         max_power=800,
-        control_threshold=100.0,
-        last_k=3,
+        control_threshold=50.0,
+        last_k=10,
     )
 
     sensor_today = MqttSensor(
@@ -108,9 +108,9 @@ def main():
             json.loads(y)["generation_today_kwh"]
         ),
     )
-    forecast = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
+    forecast_controller = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
 
-    loop = Loop(controller=[battery_controller], update_interval=30)
+    loop = Loop(controller=[forecast_controller, battery_controller, power_controller], update_interval=30)
     loop.run()
 
 

@@ -2,15 +2,31 @@ from collections import deque
 from ctrlsolar.inverter import Inverter
 from ctrlsolar.io.io import Sensor
 from ctrlsolar.controller.controller import Controller
-from ctrlsolar.battery.battery import Battery
-from typing import Optional
+from ctrlsolar.functions import check_properties, exponential_smoothing
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class ZeroConsumptionController(Controller):
-    name: str = "ZeroConsumptionController"
+class SmoothConsumption:
+    def __init__(self, sensor: Sensor, last_k: int = 10):
+        self.sensor = sensor
+        self.values = deque([None] * last_k, maxlen=last_k)
+
+    def get(self) -> float | None:
+        self.values.append(self.sensor.get())
+        logger.debug(f"Current values in smoothing window:\t {list(self.values)}")
+        filtered_values = [v for v in self.values if v is not None]
+        if not filtered_values:
+            return None
+
+        smoothed = exponential_smoothing(filtered_values)
+
+        return smoothed
+
+
+class ReduceSupply(Controller):
+    name: str = "ReduceSupply"
 
     def __init__(
         self,
@@ -18,50 +34,73 @@ class ZeroConsumptionController(Controller):
         meter: Sensor,
         control_threshold: float = 50.0,
         max_power: float = 800.0,
-        smoothen: float = 0.5,
+        smoothen: bool = True,
+        last_k: int = 10,
         offset: float = -10.0,
-        last_k: int = 3,
     ):
         self.inverter = inverter
-        self.meter = meter
         self.control_threshold = control_threshold
         self.max_power = max_power
         self.smoothen = smoothen
+        self.last_k = last_k
         self.offset = offset
-        self.diffs = deque(maxlen=last_k)
         self.active = True
 
+        if smoothen:
+            self.meter = SmoothConsumption(sensor=meter, last_k=last_k)
+        else:
+            self.meter = meter
+
+    def _check_empty_sensors_readings(self) -> bool:
+        empty_sensors_readings = []
+        for idx, entity in enumerate([self.inverter, self.meter]):
+            check = check_properties(entity)
+            empty = False
+            for key, value in check.items():
+                if value is False:
+                    empty = True
+                    logger.debug(f"Reading of '{key}' is `None`.")
+
+            if empty:
+                logger.warning(f"Found empty sensor readings.")
+
+            empty_sensors_readings.append(empty)
+
+        return any(empty_sensors_readings)
+
     def update(self):
-        skip_update = False
-        
+        skip_update = True
+        if self.smoothen:
+            logger.info(f"Consumption smoothing enabled with `last_k={self.last_k}`.")
+        else:
+            logger.info(
+                f"Consumption smoothing disabled. Ignoring value passed for `last_k`."
+            )
+
+        if not self._check_empty_sensors_readings():
+            skip_update = False
+        else:
+            logger.warning(
+                "Found `None` in one or multiple sensor readings. Update is skipped."
+            )
+
         consumption = self.meter.get()
-        if consumption is None:
-            logger.warning(f"Reading of `meter` is `None`.")
-            skip_update = True
-
         production = self.inverter.production
-        if production is None:
-            logger.warning(f"Reading of `inverter prodcution` is `None`.")
-            skip_update = True
-
         limit = self.inverter.production_limit
-        if limit is None:
-            logger.warning(f"Reading of `inverter limit` is `None`.")
-            skip_update = True
 
         logger.info(
             "Consumption\t\t{x}".format(
-                x=f"{consumption:.2f} W" if consumption is not None else "N/A"
+                x=f"{consumption:.1f} W" if consumption is not None else "N/A"
             )
         )
         logger.info(
             "Production\t\t{x}".format(
-                x=f"{production:.2f} W" if production is not None else "N/A"
+                x=f"{production:.1f} W" if production is not None else "N/A"
             )
         )
         logger.info(
             "Production Limit\t{x}".format(
-                x=f"{limit:.2f} W" if limit is not None else "N/A"
+                x=f"{limit:.1f} W" if limit is not None else "N/A"
             )
         )
 
@@ -73,17 +112,19 @@ class ZeroConsumptionController(Controller):
             # requirement = consumption + production
 
             # -> consumption should be zero, so ideally requirement = production
-            requirement = consumption + production
-            logger.info(f"Requirement\t\t{requirement:.2f} W")
+            requirement = consumption + production  # type: ignore
+            logger.info(f"Requirement\t\t{requirement:.1f} W")
 
             # new_limit = limit
-            if abs(requirement - production) > self.control_threshold:
+            if abs(requirement - production) > self.control_threshold:  # type: ignore
                 logger.info(
-                    f"Difference of {requirement-production:.2f} W exceeds {self.control_threshold:.2f} W."
+                    f"Difference of {requirement-production:.1f} W exceeds {self.control_threshold:.1f} W."  # type: ignore
                 )
 
                 if requirement < 0:
-                    new_limit = limit + requirement + self.offset # requirement is negative, producing too much. Reduce current limit by that amount 
+                    new_limit = (
+                        limit + requirement + self.offset  # type: ignore
+                    )  # requirement is negative, producing too much. Reduce current limit by that amount
                 else:  # requirement > 0:
                     new_limit = requirement + self.offset
 
@@ -93,19 +134,22 @@ class ZeroConsumptionController(Controller):
                     )
                     new_limit = self.max_power
 
-                logger.info(f"Evaluated new limit {new_limit:.2f} W")
+                logger.info(f"Evaluated new limit {new_limit:.1f} W")
+
+                if abs(new_limit - limit) < self.control_threshold:  # type: ignore
+                    # previously set limit is still probably still being set, dont change
+                    logger.info(
+                        f"Difference between new limit of {new_limit} W and current limit of {limit} W is smaller than {self.control_threshold} W."
+                    )
+                    new_limit = limit
 
                 if (new_limit != limit) and (new_limit is not None):
                     self.inverter.production_limit = new_limit
-                    logger.info(f"Set limit to {new_limit:.2f} W")
+                    logger.info(f"Set limit to {new_limit:.1f} W")
 
             else:
                 logger.info(
-                    f"No update required (threshold={self.control_threshold:.2f} W)."
+                    f"No update required (threshold={self.control_threshold:.1f} W)."
                 )
-        else:
-            logger.info(
-                f"Found `None` in one or multiple sensor readings. Update is skipped."
-            )
 
         return

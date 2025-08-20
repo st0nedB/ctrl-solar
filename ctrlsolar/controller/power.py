@@ -114,6 +114,8 @@ class ReduceConsumption(Controller):
                 if (new_limit != limit) and (new_limit is not None):
                     self.inverter.production_limit = new_limit
                     logger.info(f"Set limit to {new_limit:.1f} W")
+                else:
+                    logger.info(f"Current limit of {limit:.1f} W is sufficient. No update required.")
 
             else:
                 logger.info(

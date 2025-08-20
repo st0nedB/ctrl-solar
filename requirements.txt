@@ -1,7 +1,5 @@
 rootutils
 paho-mqtt
-python-weather
-suntime
 rich
 requests
 pandas

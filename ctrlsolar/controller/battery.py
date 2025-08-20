@@ -70,7 +70,7 @@ class DCBatteryOptimizer(Controller):
             )
         )
         logger.info(
-            "  Power Limit\t\t{x} W".format(
+            "  Limit\t\t{x} W".format(
                 x=(
                     f"{battery.output_power_limit:.1f}"
                     if battery.output_power_limit is not None
@@ -79,16 +79,16 @@ class DCBatteryOptimizer(Controller):
             )
         )
         logger.info(
-            "  Solar Power\t\t{x} W".format(
+            "  Solar\t\t{x} W".format(
                 x=(
                     f"{battery.solar_power:.1f}"
                     if battery.solar_power is not None
                     else "N/A"
                 )
             )
-        )        
+        )
         logger.info(
-            "  Output Power\t\t{x} W".format(
+            "  Output\t\t{x} W".format(
                 x=(
                     f"{battery.output_power:.1f}"
                     if battery.output_power is not None
@@ -97,7 +97,16 @@ class DCBatteryOptimizer(Controller):
             )
         )
         logger.info(
-            "  Discharge Power\t{x} W".format(
+            "  Charge\t{x} W".format(
+                x=(
+                    f"{battery.charge_power:.1f}"
+                    if battery.charge_power is not None
+                    else "N/A"
+                )
+            )
+        )
+        logger.info(
+            "  Discharge\t{x} W".format(
                 x=(
                     f"{battery.discharge_power:.1f}"
                     if battery.discharge_power is not None

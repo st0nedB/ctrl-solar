@@ -55,6 +55,10 @@ class Battery(ABC):
     def discharge_power(self) -> float | None:
         pass
 
+    @property
+    @abstractmethod
+    def charge_power(self) -> float | None:
+        pass
 
 class DCCoupledBattery(Battery):
     def __init__(self, panels: list[Panel]):

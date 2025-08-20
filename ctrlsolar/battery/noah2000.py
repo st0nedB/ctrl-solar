@@ -18,6 +18,7 @@ class Noah2000(DCCoupledBattery):
         state_of_charge_sensor: Sensor,
         mode_sensor: Sensor,
         output_power_sensor: Sensor,
+        charge_power_sensor: Sensor,
         discharge_power_sensor: Sensor,
         solar_sensor: Sensor,
         charge_limit_sensor: Sensor,
@@ -32,6 +33,7 @@ class Noah2000(DCCoupledBattery):
         self.soc_sensor = state_of_charge_sensor
         self.mode_sensor = mode_sensor
         self.output_power_sensor = output_power_sensor
+        self.charge_power_sensor = charge_power_sensor
         self.discharge_power_sensor = discharge_power_sensor
         self.solar_sensor = solar_sensor
         self.charge_limit_sensor = charge_limit_sensor
@@ -85,6 +87,10 @@ class Noah2000(DCCoupledBattery):
     @property
     def discharge_power(self) -> float | None:
         return self.discharge_power_sensor.get()
+    
+    @property
+    def charge_power(self) -> float | None:
+        return self.charge_power_sensor.get()    
 
     @property
     def solar_power(self) -> float | None:
@@ -179,6 +185,13 @@ class NoahMqttFactory:
                 json.loads(y)["discharge_w"]
             ),
         )
+        charge_power_sensor = MqttSensor(
+            mqtt=mqtt,
+            topic=f"{base_topic}",
+            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+                json.loads(y)["charge_w"]
+            ),
+        )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"{base_topic}/parameters",
@@ -212,6 +225,7 @@ class NoahMqttFactory:
             mode_sensor=mode_sensor,
             discharge_limit_sensor=discharge_limit_sensor,
             discharge_power_sensor=discharge_power_sensor,
+            charge_power_sensor=charge_power_sensor,
             charge_limit_sensor=charge_limit_sensor,
             output_power_limit_sensor=output_power_limit_sensor,
             output_power_limit_consumer=output_power_limit_consumer,

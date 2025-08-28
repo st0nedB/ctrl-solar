@@ -2,10 +2,11 @@ from ctrlsolar.battery.battery import DCCoupledBattery
 from ctrlsolar.io.io import Sensor, Consumer
 from ctrlsolar.panels.panels import Panel
 from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
+from typing import Literal
 import json
 import logging
 
-__all__ = ["Noah2000", "NoahMqttFactory"]
+__all__ = ["Noah2000", "GroBroFactory"]
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,7 @@ class Noah2000(DCCoupledBattery):
         discharge_limit_sensor: Sensor,
         todays_production_sensor: Sensor,
         total_production_sensor: Sensor,
-        output_power_limit_sensor: Sensor,
-        output_power_limit_consumer: Consumer,
+        mode_consumer: Consumer,
         n_batteries_stacked: int = 1,
         *args,
         **kwargs,
@@ -42,8 +42,7 @@ class Noah2000(DCCoupledBattery):
         self.discharge_limit_sensor = discharge_limit_sensor
         self.todays_production_sensor = todays_production_sensor
         self.total_production_sensor = total_production_sensor
-        self.output_power_limit_sensor = output_power_limit_sensor
-        self.output_power_consumer = output_power_limit_consumer
+        self.mode_consumer = mode_consumer
         self.capacity = n_batteries_stacked * 2048
 
     @property
@@ -52,13 +51,27 @@ class Noah2000(DCCoupledBattery):
 
     @property
     def mode(self) -> str | None:
-        mode = self.mode_sensor.get()
-        if mode == "battery_first":
-            raise ValueError(
-                f"Unsupported battery mode `{self.mode}` detected. Battery must be in `load_first` mode."
-            )
+        val = self.mode_sensor.get()
+        if val is None:
+            return None
 
-        return mode
+        return self._modes[val]
+
+    @mode.setter
+    def mode(self, mode: Literal["battery_first", "load_first"]):
+        if self.mode != mode:
+            numeric_mode = None
+            for k,v in self._modes.items():
+                if v == mode:
+                    numeric_mode = k
+                    break
+
+            if numeric_mode is not None:
+                self.mode_consumer.set(numeric_mode)
+            else:
+                logger.warning(f"Mode {mode} is not supported! Skipping set.")
+                
+        return
 
     @property
     def full(self) -> bool | None:
@@ -120,130 +133,89 @@ class Noah2000(DCCoupledBattery):
     def output_power(self) -> float | None:
         return self.output_power_sensor.get()
 
-    def _build_valid_payload(self, power: float) -> dict | None:
-        data = None
-        if self.discharge_limit is not None:
-            if self.charge_limit is not None:
-                data = {
-                    "charging_limit": str(self.charge_limit),
-                    "discharge_limit": str(self.discharge_limit),
-                    "output_power_w": str(int(power)),
-                }
 
-        return data
-
-    @property
-    def output_power_limit(self) -> float | None:
-        return self.output_power_limit_sensor.get()
-
-    @output_power_limit.setter
-    def output_power_limit(self, power: float):
-        if power > self.max_power:
-            power = self.max_power
-            logger.warning(
-                f"Output power target exceeds batteries configured maximum power. Setting power = {self.max_power}."
-            )
-
-        data = self._build_valid_payload(power=power)
-        logger.debug(f"Attempting to set payload {json.dumps(data)}")
-        if data is not None:
-            self.output_power_consumer.set(json.dumps(data))
-        else:
-            logger.warning(
-                f"Could not construct valid payload due to `None` readings from `discharge` and/or `charge` sensor."
-            )
-
-        return
-
-
-class NoahMqttFactory:
+class GroBroFactory:
     @classmethod
     def initialize(
         cls,
         mqtt: Mqtt,
-        base_topic: str,
+        serial_number: str,
         panels: list[Panel],
         n_batteries_stacked: int = 1,
     ) -> Noah2000:
         state_of_charge_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=base_topic,
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else 0)(
-                json.loads(y)["soc"]
+                json.loads(y)["tot_bat_soc_pct"]
             ),
         )
         mode_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=base_topic,
-            filter=lambda y: (json.loads(y)["work_mode"]),
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            filter=lambda y: (json.loads(y)["priority_mode"]),
         )
         output_power_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=base_topic,
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["output_w"]
+                json.loads(y)["out_power"]
             ),
         )
         solar_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=base_topic,
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["solar_w"]
+                json.loads(y)["pv_tot_power"]
             ),
         )
         discharge_power_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}",
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["discharge_w"]
+                json.loads(y)["charging_discharging"]
             ),
         )
         charge_power_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}",
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["charge_w"]
+                json.loads(y)["charging_discharging"]
             ),
         )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}/parameters",
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["charging_limit"]
+                json.loads(y)["charge_limit"]
             ),
         )
         discharge_limit_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}/parameters",
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
                 json.loads(y)["discharge_limit"]
             ),
         )
         todays_production_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}",
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-                json.loads(y)["generation_today_kwh"]
+                json.loads(y)["pv_eng_today"]
             ),
         )
         total_production_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}",
+            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
             filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-                json.loads(y)["generation_total_kwh"]
+                json.loads(y)["eng_out_device"]
             ),
         )
-        output_power_limit_sensor = MqttSensor(
+        mode_consumer = MqttConsumer(
             mqtt=mqtt,
-            topic=f"{base_topic}/parameters",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["output_power_w"]
-            ),
+            topic=f"homeassistant/number/grobro/{serial_number.upper()}/slot1_mode/set",
         )
-        output_power_limit_consumer = MqttConsumer(
-            mqtt=mqtt,
-            topic=f"{base_topic}/parameters/set",
-        )
+
 
         return Noah2000(
             state_of_charge_sensor=state_of_charge_sensor,
@@ -256,8 +228,7 @@ class NoahMqttFactory:
             charge_limit_sensor=charge_limit_sensor,
             todays_production_sensor=todays_production_sensor,
             total_production_sensor=total_production_sensor,
-            output_power_limit_sensor=output_power_limit_sensor,
-            output_power_limit_consumer=output_power_limit_consumer,
+            mode_consumer=mode_consumer,
             n_batteries_stacked=n_batteries_stacked,
             panels=panels,
         )

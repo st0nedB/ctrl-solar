@@ -27,6 +27,7 @@ class DCBatteryOptimizer(Controller):
         self.discharge_threshold = discharge_threshold
         self.discharge_backoff = discharge_backoff
         self._last_reset = datetime.now().date()
+        self._end_prod_switch = False
 
     def _reset_before_sunrise(self):
         now_hour = int(datetime.now().today().strftime("%H"))
@@ -36,8 +37,9 @@ class DCBatteryOptimizer(Controller):
         if now_hour >= production_start_hours - 1:
             if self._last_reset < datetime.now().date():
                 self._last_reset = datetime.now().date()
+                self._end_prod_switch = False
                 for battery in self.batteries:
-                    battery.output_power_limit = battery.max_power
+                    battery.mode = "load_first"
         return
 
     def _check_empty_sensors_readings(self) -> bool:
@@ -58,6 +60,10 @@ class DCBatteryOptimizer(Controller):
         logger.debug(f"Sensor check result for batteries is {empty_sensors_readings}.")
         return any(empty_sensors_readings)
 
+    @property
+    def n_load_first(self) -> int:
+        return sum([bb.mode == "load_first" for bb in self.batteries])
+
     def log_battery_status(self, battery: DCCoupledBattery, idx: int):
         logger.info(f"Battery {idx}")
         logger.info(
@@ -65,15 +71,6 @@ class DCBatteryOptimizer(Controller):
                 x=(
                     f"{battery.state_of_charge:.1f}"
                     if battery.state_of_charge is not None
-                    else "N/A"
-                )
-            )
-        )
-        logger.info(
-            "  Limit\t\t{x} W".format(
-                x=(
-                    f"{battery.output_power_limit:.1f}"
-                    if battery.output_power_limit is not None
                     else "N/A"
                 )
             )
@@ -130,53 +127,42 @@ class DCBatteryOptimizer(Controller):
             )
 
         if not skip_update:
-            for bb, battery in enumerate(self.batteries):
-                self.log_battery_status(battery, bb)
-                if battery.state_of_charge / 100 >= self.full_threshold:  # type: ignore
-                    logging.info(f"Battery {bb} is now fully charged.")
-                    if battery.solar_power < self.discharge_threshold:  # type: ignore
-                        battery.output_power_limit = 0
-                        logger.info(
-                            f"Available solar power of battery {bb} below threshold. Output power limit to 0 to prevent discharge."
-                        )
-                    else:
-                        new_limit = battery.output_power_limit - battery.discharge_power - self.discharge_backoff  # type: ignore
-                        battery.output_power_limit = new_limit
-                        logger.info(
-                            f"Discharge of {battery.discharge_power} W detected for battery {bb}. Set output power to {new_limit} W."
-                        )
+            current_hour = int(datetime.now().strftime("%H"))
+            production_ends = [
+                bb.predicted_production_end_hour(threshold_kWh=0.2)
+                for bb in self.batteries
+            ]
 
-            off = [battery.output_power_limit == 0 for battery in self.batteries]
-            discharging = [battery.discharge_power > self.discharge_threshold for battery in self.batteries]  # type: ignore
+            for battery, prod_end in zip(self.batteries, production_ends):
+                # production is ongoing for this battery
+                if current_hour < prod_end:
+                    if not battery.empty:
+                        if self.n_load_first > 1:
+                            battery.mode = "battery_first"
 
-            if sum(discharging) > 1:
-                logger.info(
-                    f"Detected more than one battery discharging over threshold of {self.discharge_threshold} W."
-                )
+            # production has ended for all batteries
+            if current_hour >= max(production_ends):
+                if not self._end_prod_switch:
+                    self._end_prod_switch = True
+                    for battery in self.batteries:
+                        battery.mode = "battery_first"
+
                 # find the indices which sort the batteries by their available solar power
                 solar_powers = [battery.solar_power for battery in self.batteries]
                 sort_idx = [
                     x for x, y in sorted(enumerate(solar_powers), key=lambda x: x[1])  # type: ignore
                 ]
 
-                # switch off the one with the lowest solar power
                 for idx in sort_idx:
                     battery = self.batteries[idx]
-                    if battery.discharge_power > self.discharge_threshold:  # type: ignore
-                        battery.output_power_limit = 0
-                        logger.info(f"Stopped discharging on battery {idx}.")
+                    if not battery.empty:
+                        battery.mode = "load_first"
+                        logger.info(f"Switched battery {idx} to mode `load_first`.")
                         break
 
-            if all(off):
-                logger.warning(f"All DC-Batteries are switched off!")
-                for battery in reversed(self.batteries):
-                    if not battery.empty:
-                        if battery.output_power_limit == 0:
-                            battery.output_power_limit = battery.max_power
-                            logger.info(
-                                f"Found non-empty battery and switched power output to {battery.max_power}."
-                            )
-                            break
+            logger.info(
+                f"Detected more than one battery discharging over threshold of {self.discharge_threshold} W."
+            )
 
         empty = [battery.empty for battery in self.batteries]
         if all(empty):

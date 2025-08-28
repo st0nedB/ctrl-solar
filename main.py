@@ -6,7 +6,7 @@ root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
 
 from ctrlsolar.io import Mqtt, MqttSensor, ExponentialSmoothing, SumSensor
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
-from ctrlsolar.battery import NoahMqttFactory
+from ctrlsolar.battery import GroBroFactory
 from ctrlsolar.controller import (
     ReduceConsumption,
     ProductionForecast,
@@ -27,7 +27,7 @@ logging.basicConfig(
 
 def main():
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
     mqtt = Mqtt(
         broker=os.environ["MQTT_URL"],
         port=int(os.environ["MQTT_PORT"]),
@@ -49,8 +49,8 @@ def main():
     )
 
     weather = OpenMeteoForecast(
-        latitude=47.833301,
-        longitude=12.977702,
+        latitude=float(os.environ["LATITUDE"]),
+        longitude=float(os.environ["LONGITUDE"]),
         timezone="Europe/Berlin",
     )
 
@@ -74,15 +74,15 @@ def main():
         ),
     ]
 
-    battery_1 = NoahMqttFactory.initialize(
+    battery_1 = GroBroFactory.initialize(
         mqtt=mqtt,
-        base_topic="noah-2000-battery/0PVPH6ZR23QT00D9",
+        serial_number=os.environ["BATTERY1_SN"],
         panels=panels[:2],
         n_batteries_stacked=1,
     )
-    battery_2 = NoahMqttFactory.initialize(
+    battery_2 = GroBroFactory.initialize(
         mqtt=mqtt,
-        base_topic="noah-2000-battery/0PVPH6ZR23QT019U",
+        serial_number=os.environ["BATTERY2_SN"],
         panels=panels[2:],
         n_batteries_stacked=1,
     )
@@ -105,16 +105,16 @@ def main():
 
     yield_sensor_1 = MqttSensor(
         mqtt=mqtt,
-        topic="noah-2000-battery/0PVPH6ZR23QT00D9",
+        topic=f"homeassistant/grobro/{os.environ["BATTERY1_SN"].upper()}/state",
         filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-            json.loads(y)["generation_today_kwh"]
+            json.loads(y)["pv_eng_today"]
         ),
     )
     yield_sensor_2 = MqttSensor(
         mqtt=mqtt,
-        topic="noah-2000-battery/0PVPH6ZR23QT019U",
+        topic=f"homeassistant/grobro/{os.environ["BATTERY2_SN"].upper()}/state",
         filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-            json.loads(y)["generation_today_kwh"]
+            json.loads(y)["pv_eng_today"]
         ),
     )
 
@@ -125,6 +125,7 @@ def main():
     forecast_controller = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
 
     loop = Loop(controller=[forecast_controller, battery_controller, power_controller], update_interval=30)
+    loop = Loop(controller=[battery_controller], update_interval=30)
     loop.run()
 
 

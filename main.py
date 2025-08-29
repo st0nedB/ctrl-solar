@@ -142,7 +142,7 @@ def main():
 
     loop = Loop(
         controller=[forecast_controller, battery_controller, power_controller],
-        update_interval=30,
+        update_interval=60,
     )
     loop.run()
 

@@ -110,7 +110,7 @@ class ReduceConsumption(Controller):
 
                 # Apply the new limit
                 self.inverter.production_limit = new_limit
-                logger.info(f"✓ Production limit updated to {new_limit:.1f} W")
+                logger.info(f"Production limit updated to {new_limit:.1f} W")
 
             else:
                 logger.info(f"Power imbalance {consumption:.1f} W is within control threshold ±{self.control_threshold:.1f} W - no adjustment needed")

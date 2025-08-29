@@ -4,7 +4,13 @@ import rootutils
 
 root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
 
-from ctrlsolar.io import Mqtt, MqttSensor, ExponentialSmoothing, SumSensor
+from ctrlsolar.io import (
+    Mqtt,
+    MqttSensor,
+    ExponentialSmoothing,
+    SumSensor,
+    PropertySensor,
+)
 from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
 from ctrlsolar.battery import GroBroFactory
 from ctrlsolar.controller import (
@@ -24,6 +30,7 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[RichHandler(show_time=True, show_level=True, show_path=False)],
 )
+
 
 def main():
     root_logger = logging.getLogger()
@@ -88,7 +95,7 @@ def main():
     )
     battery_controller = DCBatteryOptimizer(
         batteries=[battery_1, battery_2],
-        full_threshold=0.95,
+        full_threshold=95,
         discharge_backoff=100,
         discharge_threshold=800,
     )
@@ -96,9 +103,18 @@ def main():
     inverter = Deye2MqttFactory.initialize(
         mqtt=mqtt, base_topic="deye", inverter=DeyeSunM160G4
     )
+    available = SumSensor(
+        sensors=[
+            PropertySensor(battery_1, "empty"),
+            PropertySensor(battery_2, "empty"),
+        ],
+        filter=lambda x: True if x == 0 else False,
+    )
+
     power_controller = ReduceConsumption(
         meter=meter_smooth,
         inverter=inverter,
+        available=available,
         max_power=800,
         control_threshold=50.0,
     )
@@ -118,13 +134,16 @@ def main():
         ),
     )
 
-    sensor_today = SumSensor(
-        sensors = [yield_sensor_1, yield_sensor_2]
+    sensor_today = SumSensor(sensors=[yield_sensor_1, yield_sensor_2])
+
+    forecast_controller = ProductionForecast(
+        panels=panels, weather=weather, sensor_today=sensor_today
     )
 
-    forecast_controller = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
-
-    loop = Loop(controller=[forecast_controller, battery_controller, power_controller], update_interval=30)
+    loop = Loop(
+        controller=[forecast_controller, battery_controller, power_controller],
+        update_interval=30,
+    )
     loop.run()
 
 

@@ -61,16 +61,20 @@ class Noah2000(DCCoupledBattery):
     def mode(self, mode: Literal["battery_first", "load_first"]):
         if self.mode != mode:
             numeric_mode = None
-            for k,v in self._modes.items():
+            for k, v in self._modes.items():
                 if v == mode:
                     numeric_mode = k
                     break
 
             if numeric_mode is not None:
+                logger.debug(
+                    f"Setting new mode `{mode}` ({numeric_mode})."
+                )
                 self.mode_consumer.set(numeric_mode)
             else:
                 logger.warning(f"Mode {mode} is not supported! Skipping set.")
-                
+
+        logger.debug(f"New mode is identical to current mode. Skipping update.")
         return
 
     @property
@@ -172,16 +176,24 @@ class GroBroFactory:
         discharge_power_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
-            filter=lambda y: (lambda x: 0 if x is not None and float(x) > 0 else (float(x) if x is not None else None))(
-            json.loads(y)["charging_discharging"]
-            ),
+            filter=lambda y: (
+                lambda x: (
+                    0
+                    if x is not None and float(x) > 0
+                    else (float(x) if x is not None else None)
+                )
+            )(json.loads(y)["charging_discharging"]),
         )
         charge_power_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
-            filter=lambda y: (lambda x: 0 if x is not None and float(x) < 0 else (float(x) if x is not None else None))(
-                json.loads(y)["charging_discharging"]
-            ),
+            filter=lambda y: (
+                lambda x: (
+                    0
+                    if x is not None and float(x) < 0
+                    else (float(x) if x is not None else None)
+                )
+            )(json.loads(y)["charging_discharging"]),
         )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
@@ -215,7 +227,6 @@ class GroBroFactory:
             mqtt=mqtt,
             topic=f"homeassistant/number/grobro/{serial_number.upper()}/slot1_mode/set",
         )
-
 
         return Noah2000(
             state_of_charge_sensor=state_of_charge_sensor,

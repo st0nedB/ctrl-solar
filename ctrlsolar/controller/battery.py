@@ -13,11 +13,12 @@ class DCBatteryOptimizer(Controller):
     def __init__(
         self,
         batteries: list[DCCoupledBattery],
-        full_threshold: float = 0.95,
+        full_threshold: float = 95,
         discharge_backoff: int = 100,
         discharge_threshold: int = 200,
     ):
-        if not len(batteries) <= 2:
+        super().__init__()
+        if len(batteries) < 2:
             raise ValueError(
                 f"The `DCBatteryOptimizer` requires at least two batteries! Found {len(batteries)}."
             )
@@ -28,6 +29,9 @@ class DCBatteryOptimizer(Controller):
         self.discharge_backoff = discharge_backoff
         self._last_reset = datetime.now().date()
         self._end_prod_switch = False
+        self._daily_full_charge_switches = (
+            set()
+        )  # Track which batteries were switched due to full charge today
 
     def _reset_before_sunrise(self):
         now_hour = int(datetime.now().today().strftime("%H"))
@@ -38,6 +42,7 @@ class DCBatteryOptimizer(Controller):
             if self._last_reset < datetime.now().date():
                 self._last_reset = datetime.now().date()
                 self._end_prod_switch = False
+                self._daily_full_charge_switches.clear()  # Reset daily tracking
                 for battery in self.batteries:
                     battery.mode = "load_first"
         return
@@ -126,12 +131,17 @@ class DCBatteryOptimizer(Controller):
         self._reset_before_sunrise()
         skip_update = True
 
-        if not self._check_empty_sensors_readings():
-            skip_update = False
-        else:
+        if self._check_empty_sensors_readings():
             logger.warning(
                 "Found `None` in one or multiple sensor readings. Update is skipped."
             )
+        elif all([battery.empty for battery in self.batteries]):
+            logger.info(f"All batteries are empty. Update is skipped.")
+        else:
+            skip_update = False
+
+        for ii, battery in enumerate(self.batteries):
+            self.log_battery_status(battery, ii)
 
         if not skip_update:
             current_hour = int(datetime.now().strftime("%H"))
@@ -140,47 +150,38 @@ class DCBatteryOptimizer(Controller):
                 for bb in self.batteries
             ]
 
-            for battery, prod_end in zip(self.batteries, production_ends):
-                # production is ongoing for this battery
-                if current_hour < prod_end:
-                    if not battery.empty:
-                        if self.n_load_first > 1:
+            # During production: handle full charge switching and ensure only one battery is in load_first mode
+            production_ongoing = any(
+                current_hour < prod_end for prod_end in production_ends
+            )
+
+            if production_ongoing:
+                # Step 1: Switch fully charged batteries to battery_first (once per day)
+                for ii, battery in enumerate(self.batteries):
+                    if (
+                        battery.state_of_charge >= self.full_threshold  # type: ignore
+                        and ii not in self._daily_full_charge_switches
+                    ):
+
+                        # Count how many would remain in load_first after this switch
+                        remaining_load_first = sum(
+                            1
+                            for jj, bb in enumerate(self.batteries)
+                            if bb.mode == "load_first" and jj != ii
+                        )
+
+                        # Only switch if at least one other battery will remain in load_first
+                        if remaining_load_first > 0:
                             battery.mode = "battery_first"
+                            self._daily_full_charge_switches.add(ii)
+                            logger.info(f"Battery {ii} mode is now `battery_first`.")
 
             # production has ended for all batteries
             if current_hour >= max(production_ends):
-                if not self._end_prod_switch:
-                    self._end_prod_switch = True
-                    for battery in self.batteries:
-                        battery.mode = "battery_first"
-
-                # find the indices which sort the batteries by their available solar power
-                solar_powers = [battery.solar_power for battery in self.batteries]
-                sort_idx = [
-                    x for x, y in sorted(enumerate(solar_powers), key=lambda x: x[1])  # type: ignore
-                ]
-
-                for idx in sort_idx:
-                    battery = self.batteries[idx]
-                    if not battery.empty:
+                # switch all batteries to `load_first`
+                for ii, battery in enumerate(self.batteries):
+                    if battery.mode != "load_first":
+                        logger.debug(f"Switching battery {ii} to `load_first` because production has ended.")
                         battery.mode = "load_first"
-                        logger.info(f"Switched battery {idx} to mode `load_first`.")
-                        break
-
-            is_discharging = [
-                bb.discharge_power > self.discharge_threshold
-                for bb in self.batteries  # type:ignore
-            ]
-            if sum(is_discharging) > 1:
-                logger.info(
-                    f"Detected more than one battery discharging over threshold of {self.discharge_threshold} W."
-                )
-
-        for ii, battery in enumerate(self.batteries):
-            self.log_battery_status(battery, ii)
-
-        empty = [battery.empty for battery in self.batteries]
-        if all(empty):
-            logger.info(f"All batteries are empty.")
 
         return

@@ -94,16 +94,16 @@ class ReduceConsumption(Controller):
 
             # Check if adjustment is needed
             if abs(consumption) > self.control_threshold:
-                logger.info(f"Power imbalance of {consumption:.1f} W exceeds control threshold of {self.control_threshold:.1f} W")
+                logger.info(f"Consumption of {consumption:.1f} W exceeds control threshold of {self.control_threshold:.1f} W")
 
                 new_limit = limit + consumption + self.offset  # type: ignore
                 
                 # Apply maximum power constraint
                 if new_limit > self.max_power:
-                    logger.info(f"Calculated limit {new_limit:.1f} W exceeds maximum {self.max_power:.1f} W, capping to max.")
+                    logger.info(f"Calculated limit {new_limit:.1f} W exceeds {self.max_power:.1f} W, capping to max.")
                     new_limit = self.max_power
                 elif new_limit < self.min_power:
-                    logger.info(f"Calculated limit {new_limit:.1f} W is below minimum of {self.min_power:.1f} W, capping to min.")
+                    logger.info(f"Calculated limit {new_limit:.1f} W is below {self.min_power:.1f} W, capping to min.")
                     new_limit = self.min_power
 
                 logger.info(f"New production limit: {new_limit:.1f} W (change: {new_limit - limit:.1f} W)")  # type: ignore

@@ -125,7 +125,6 @@ def main():
     forecast_controller = ProductionForecast(panels=panels, weather=weather, sensor_today=sensor_today)
 
     loop = Loop(controller=[forecast_controller, battery_controller, power_controller], update_interval=30)
-    loop = Loop(controller=[battery_controller], update_interval=30)
     loop.run()
 
 

@@ -172,14 +172,14 @@ class GroBroFactory:
         discharge_power_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
-                json.loads(y)["charging_discharging"]
+            filter=lambda y: (lambda x: 0 if x is not None and float(x) > 0 else (float(x) if x is not None else None))(
+            json.loads(y)["charging_discharging"]
             ),
         )
         charge_power_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(
+            filter=lambda y: (lambda x: 0 if x is not None and float(x) < 0 else (float(x) if x is not None else None))(
                 json.loads(y)["charging_discharging"]
             ),
         )

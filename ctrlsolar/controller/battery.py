@@ -57,7 +57,9 @@ class DCBatteryOptimizer(Controller):
 
             empty_sensors_readings.append(empty)
 
-        logger.debug(f"Sensor check result for batteries is {empty_sensors_readings}.")
+        logger.debug(
+            f"Sensor check result for batteries is {empty_sensors_readings} (True = Empty Reading)."
+        )
         return any(empty_sensors_readings)
 
     @property
@@ -73,6 +75,11 @@ class DCBatteryOptimizer(Controller):
                     if battery.state_of_charge is not None
                     else "N/A"
                 )
+            )
+        )
+        logger.info(
+            "  Mode\t\t{x}".format(
+                x=(battery.mode if battery.mode is not None else "N/A")
             )
         )
         logger.info(
@@ -114,8 +121,8 @@ class DCBatteryOptimizer(Controller):
 
     def update(self):
         # Key insights
-        # 1. Many batteries discharge more efficiently at higher discharge powers
-        # 2. µWRs try to balance their inputs to equal power
+        # 1. Many batteries discharge more efficiently at higher discharge powers, meaning, conversion losses are minimized if only one battery discharges at a time
+        # 2. µWRs try to balance their inputs to equal power, meaning, they will discharge a battery and limit another, even if enough solar is available
         self._reset_before_sunrise()
         skip_update = True
 
@@ -160,9 +167,17 @@ class DCBatteryOptimizer(Controller):
                         logger.info(f"Switched battery {idx} to mode `load_first`.")
                         break
 
-            logger.info(
-                f"Detected more than one battery discharging over threshold of {self.discharge_threshold} W."
-            )
+            is_discharging = [
+                bb.discharge_power > self.discharge_threshold
+                for bb in self.batteries  # type:ignore
+            ]
+            if sum(is_discharging) > 1:
+                logger.info(
+                    f"Detected more than one battery discharging over threshold of {self.discharge_threshold} W."
+                )
+
+        for ii, battery in enumerate(self.batteries):
+            self.log_battery_status(battery, ii)
 
         empty = [battery.empty for battery in self.batteries]
         if all(empty):

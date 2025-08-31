@@ -1,8 +1,7 @@
-import os
 import json
 import rootutils
 
-root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
+root = rootutils.setup_root(__file__, pythonpath=True, cwd=False)
 
 from ctrlsolar.io import (
     Mqtt,
@@ -20,6 +19,8 @@ from ctrlsolar.controller import (
 )
 from ctrlsolar.panels import Panel, OpenMeteoForecast
 from ctrlsolar.loop import Loop
+from ctrlsolar.config import Config
+from ctrlsolar.functions import filter_dict_with_keys
 
 import logging
 from rich.logging import RichHandler
@@ -35,113 +36,59 @@ logging.basicConfig(
 def main():
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
-    mqtt = Mqtt(
-        broker=os.environ["MQTT_URL"],
-        port=int(os.environ["MQTT_PORT"]),
-        username=os.environ["MQTT_USER"],
-        password=os.environ["MQTT_PASSWD"],
-    )
+
+    config = Config.from_yaml("config.yaml")
+
+    mqtt = Mqtt(**config.mqtt)
     mqtt.connect()
+
+    weather = OpenMeteoForecast(**config.location)
 
     meter = MqttSensor(
         mqtt=mqtt,
-        topic="tele/esp_pwr_mtr/SENSOR",
-        filter=lambda y: (lambda x: float(x) if x is not None else None)(
-            json.loads(y)["ENERGY"]["Power"]
-        ),
+        topic=config.powermeter["topic"],
+        filter=lambda x: filter_dict_with_keys(json.loads(x), **config.powermeter["filter"]),
     )
-    meter_update_interval = 10
-    meter_smooth = ExponentialSmoothing(
-        sensor=meter,
-        last_k=int(os.environ["UPDATE_INTERVAL"]) // meter_update_interval,
-    )
+    if config.powermeter.use_smoothing:
+        meter = ExponentialSmoothing(
+            sensor=meter,
+            last_k=config.loop.update_interval // config.powermeter.update_interval,  # type: ignore
+        )
 
-    weather = OpenMeteoForecast(
-        latitude=float(os.environ["LATITUDE"]),
-        longitude=float(os.environ["LONGITUDE"]),
-        timezone="Europe/Berlin",
-    )
+    batteries = []
+    for bb in config.batteries:
+        cnf = dict(bb)
+        panels = [Panel(forecast=weather, **pp) for pp in cnf.pop("panels")]
+        cnf.pop("model")
+        battery = GroBroFactory.initialize(
+            mqtt=mqtt, panels=panels, last_k=config.loop.update_interval // 5, **cnf
+        )
+        batteries.append(battery)
 
-    panels = [
-        *[
-            Panel(
-                tilt=22.5,
-                azimuth=90,
-                area=1.762 * 1.134,
-                efficiency=0.22,
-                forecast=weather,
-            )
-            for _ in range(3)
-        ],
-        Panel(
-            tilt=22.5,
-            azimuth=180,
-            area=1.762 * 1.134,
-            efficiency=0.22,
-            forecast=weather,
-        ),
-    ]
-
-    battery_1 = GroBroFactory.initialize(
-        mqtt=mqtt,
-        serial_number=os.environ["BATTERY1_SN"],
-        panels=panels[:2],
-        n_batteries_stacked=1,
-        use_smoothing=True,
-        mqtt_update_interval=5,
-        loop_update_interval=int(os.environ["UPDATE_INTERVAL"])
-    )
-    battery_2 = GroBroFactory.initialize(
-        mqtt=mqtt,
-        serial_number=os.environ["BATTERY2_SN"],
-        panels=panels[2:],
-        n_batteries_stacked=1,
-        use_smoothing=True,
-        mqtt_update_interval=5,
-        loop_update_interval=int(os.environ["UPDATE_INTERVAL"])
-    )
     battery_controller = DCBatteryOptimizer(
-        batteries=[battery_1, battery_2],
-        full_threshold=95,
-        discharge_backoff=100,
-        discharge_threshold=800,
+        batteries=batteries,
+        **config.loop.battery,
     )
 
     inverter = Deye2MqttFactory.initialize(
-        mqtt=mqtt, base_topic="deye", inverter=DeyeSunM160G4
+        mqtt=mqtt, topic="deye", inverter=eval(config.inverter.model)
     )
     available = SumSensor(
-        sensors=[
-            PropertySensor(battery_1, "empty"),
-            PropertySensor(battery_2, "empty"),
-        ],
+        sensors=[PropertySensor(bb, "empty") for bb in batteries],
         filter=lambda x: True if x == 0 else False,
     )
-
     power_controller = ReduceConsumption(
-        meter=meter_smooth,
-        inverter=inverter,
-        available=available,
-        max_power=800,
-        control_threshold=50.0,
+        inverter=inverter, meter=meter, available=available, **config.loop.power
     )
 
-    yield_sensor_1 = MqttSensor(
-        mqtt=mqtt,
-        topic=f"homeassistant/grobro/{os.environ["BATTERY1_SN"].upper()}/state",
-        filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-            json.loads(y)["pv_eng_today"]
-        ),
-    )
-    yield_sensor_2 = MqttSensor(
-        mqtt=mqtt,
-        topic=f"homeassistant/grobro/{os.environ["BATTERY2_SN"].upper()}/state",
-        filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
-            json.loads(y)["pv_eng_today"]
-        ),
+    sensor_today = SumSensor(
+        sensors=[PropertySensor(bb, "todays_production") for bb in batteries],
     )
 
-    sensor_today = SumSensor(sensors=[yield_sensor_1, yield_sensor_2])
+    panels = []
+    for bb in config.batteries:
+        for pp in bb.panels:
+            panels.append(Panel(forecast=weather, **pp))
 
     forecast_controller = ProductionForecast(
         panels=panels, weather=weather, sensor_today=sensor_today
@@ -149,7 +96,7 @@ def main():
 
     loop = Loop(
         controller=[forecast_controller, battery_controller, power_controller],
-        update_interval=int(os.environ["UPDATE_INTERVAL"]),
+        update_interval=config.loop.update_interval,
     )
     loop.run()
 

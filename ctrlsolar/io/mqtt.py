@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 class Mqtt:
     def __init__(
         self,
-        broker: str,
+        host: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
         port: int = 1883,
     ):
-        self.broker = broker
+        self.broker = host
         self.port = port
         self.client = mqtt.Client()
         self.subscriptions = {}

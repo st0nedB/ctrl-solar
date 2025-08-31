@@ -142,34 +142,33 @@ class GroBroFactory:
     def initialize(
         cls,
         mqtt: Mqtt,
-        serial_number: str,
+        serial: str,
         panels: list[Panel],
         n_batteries_stacked: int = 1,
         use_smoothing: bool = False,
-        mqtt_update_interval: Optional[int] = None,
-        loop_update_interval: Optional[int] = None,
+        last_k: Optional[int] = None,
     ) -> Noah2000:
         if use_smoothing:
-            if (mqtt_update_interval is None) | (loop_update_interval is None):
+            if (last_k is None):
                 raise ValueError(
-                    f"Found `use_smoothing=True. Smoothing requires values for `mqtt_uopdate_interval` and `loop_update_interval`, but found None."
+                    f"Found `use_smoothing=True. Smoothing requires values for `last_k` but found None."
                 )
 
         state_of_charge_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else 0)(
                 json.loads(y)["tot_bat_soc_pct"]
             ),
         )
         mode_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (json.loads(y)["priority_mode"]),
         )
         output_power_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
                 json.loads(y)["out_power"]
             ),
@@ -177,11 +176,11 @@ class GroBroFactory:
         if use_smoothing:
             output_power_sensor = AverageSmoothing(
                 sensor=output_power_sensor,
-                last_k=loop_update_interval // mqtt_update_interval,  # type: ignore
+                last_k=last_k  # type: ignore
             )
         solar_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
                 json.loads(y)["pv_tot_power"]
             ),
@@ -189,11 +188,11 @@ class GroBroFactory:
         if use_smoothing:
             solar_sensor = AverageSmoothing(
                 sensor=solar_sensor,
-                last_k=loop_update_interval // mqtt_update_interval,  # type: ignore
+                last_k=last_k  # type: ignore
             )
         discharge_power_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (
                 lambda x: (
                     0
@@ -204,7 +203,7 @@ class GroBroFactory:
         )
         charge_power_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (
                 lambda x: (
                     0
@@ -216,39 +215,39 @@ class GroBroFactory:
         if use_smoothing:
             charge_power_sensor = AverageSmoothing(
                 sensor=charge_power_sensor,
-                last_k=loop_update_interval // mqtt_update_interval,  # type: ignore
+                last_k=last_k  # type: ignore
             )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
                 json.loads(y)["charge_limit"]
             ),
         )
         discharge_limit_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: float(x) if x is not None else None)(
                 json.loads(y)["discharge_limit"]
             ),
         )
         todays_production_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
                 json.loads(y)["pv_eng_today"]
             ),
         )
         total_production_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial_number.upper()}/state",
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=lambda y: (lambda x: 1e3 * float(x) if x is not None else None)(
                 json.loads(y)["eng_out_device"]
             ),
         )
         mode_consumer = MqttConsumer(
             mqtt=mqtt,
-            topic=f"homeassistant/number/grobro/{serial_number.upper()}/slot1_mode/set",
+            topic=f"homeassistant/number/grobro/{serial.upper()}/slot1_mode/set",
         )
 
         return Noah2000(

@@ -14,8 +14,6 @@ class DCBatteryOptimizer(Controller):
         self,
         batteries: list[DCCoupledBattery],
         full_threshold: float = 95,
-        discharge_backoff: int = 100,
-        discharge_threshold: int = 200,
     ):
         super().__init__()
         if len(batteries) < 2:
@@ -25,8 +23,6 @@ class DCBatteryOptimizer(Controller):
 
         self.batteries = batteries
         self.full_threshold = full_threshold
-        self.discharge_threshold = discharge_threshold
-        self.discharge_backoff = discharge_backoff
         self._last_reset = datetime.now().date()
         self._end_prod_switch = False
         self._daily_full_charge_switches = (

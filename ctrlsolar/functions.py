@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Union, Literal
 
 __all__ = ["running_mean", "check_properties"]
 
@@ -31,3 +32,18 @@ def check_properties(instance) -> dict:
                 else:
                     tmp[prop_name] = True
     return tmp
+
+
+def filter_dict_with_keys(
+    x: dict, dkeys: list[str,], dtype: Literal["str", "float", "int"], scale: float = 1.0
+) -> Union[str, float, int]:
+    val: Any = x
+    for key in dkeys:
+        val = val[key]
+
+    val = eval(dtype)(val)
+
+    if dtype != "str":
+        val *= scale
+
+    return val

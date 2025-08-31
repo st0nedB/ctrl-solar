@@ -9,6 +9,9 @@ Currently includes support for for Deye inverters and Noah2000 batteries via MQT
 > [!IMPORTANT]
 > This project is work-in-progress. Expect errors and bugs. I'll try to support on a best-effort basis.
 
+## Urgent Todos:
+- [] Refactor and simplify configuration, currently really messy code
+
 ---
 
 ## 🔌 Extensible Architecture

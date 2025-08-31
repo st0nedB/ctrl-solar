@@ -15,7 +15,7 @@ class ReduceConsumption(Controller):
         inverter: Inverter,
         meter: Sensor,
         available: Sensor,
-        control_threshold: float = 50.0,
+        control_threshold_W: float = 50.0,
         max_power: float = 800.0,
         min_power: float = 80.0,
         offset: float = -10.0,
@@ -23,7 +23,7 @@ class ReduceConsumption(Controller):
         self.inverter = inverter
         self.meter = meter
         self.available = available
-        self.control_threshold = control_threshold
+        self.control_threshold = control_threshold_W
         self.max_power = max_power
         self.min_power = min_power
         self.offset = offset

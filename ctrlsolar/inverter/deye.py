@@ -49,20 +49,20 @@ class DeyeSunM160G4(DeyeSun):
 class Deye2MqttFactory:
     @classmethod
     def initialize(
-        cls, mqtt: Mqtt, base_topic: str, inverter: type[DeyeSun]
+        cls, mqtt: Mqtt, topic: str, inverter: type[DeyeSun]
     ) -> Inverter:
         power_sensor=MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}/ac/active_power",
+            topic=f"{topic}/ac/active_power",
             filter=lambda x: float(x) if x is not None else None,
         )
         production_limit_sensor=MqttSensor(
             mqtt=mqtt,
-            topic=f"{base_topic}/settings/active_power_regulation",
+            topic=f"{topic}/settings/active_power_regulation",
             filter=lambda x: float(x) if x is not None else None,
         )
         production_limit_consumer=MqttConsumer(
-            mqtt=mqtt, topic=f"{base_topic}/settings/active_power_regulation/command"
+            mqtt=mqtt, topic=f"{topic}/settings/active_power_regulation/command"
         )
         return inverter(
             power_sensor=power_sensor,

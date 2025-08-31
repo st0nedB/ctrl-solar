@@ -1,0 +1,63 @@
+mqtt:
+  host: !env MQTT_HOST
+  port: !env MQTT_PORT
+  username: !env MQTT_USERNAME
+  password: !env MQTT_PASSWORD
+
+location:
+  latitude: !env PLANT_LATITUDE
+  longitude: !env PLANT_LONGITUDE
+  timezone: !env PLANT_TIMEZONE
+
+batteries:
+  - model: "noah2000"
+    serial: !env BATTERY1_SN
+    panels:
+      - tilt: 22.5
+        azimuth: 90
+        area: 1.9981
+        efficiency: 0.22
+      - tilt: 22.5
+        azimuth: 90
+        area: 1.9981
+        efficiency: 0.22
+    n_batteries_stacked: 1
+    use_smoothing: true
+  - model: "noah2000"
+    serial: !env BATTERY2_SN
+    panels:
+      - tilt: 22.5
+        azimuth: 90
+        area: 1.9981
+        efficiency: 0.22
+      - tilt: 22.5
+        azimuth: 180
+        area: 1.9981
+        efficiency: 0.22
+    n_batteries_stacked: 1
+    use_smoothing: true
+
+powermeter:
+  topic: "tele/esp_pwr_mtr/SENSOR"
+  filter:
+    dkeys:
+      - "ENERGY"
+      - "Power"
+    dtype: "float"
+    scale: 1.0
+  use_smoothing: true
+  update_interval: 10
+
+inverter:
+  model: "DeyeSunM160G4"
+  topic: "deye"
+
+loop:
+  update_interval: 60
+  power:
+    max_power: 800
+    min_power: 80
+    control_threshold_W: 50
+    offset: -10.0
+  battery:
+    full_threshold: 0.95

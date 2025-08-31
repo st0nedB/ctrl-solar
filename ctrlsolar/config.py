@@ -3,6 +3,21 @@ from collections.abc import Mapping
 from typing import Optional
 from os import PathLike
 import yaml
+import os
+
+
+def env_constructor(loader, node):
+    """Constructor for !env tag to load environment variables"""
+    env_var = loader.construct_scalar(node)
+    env_value = os.getenv(env_var)
+    if env_value is None:
+        raise ValueError(f"Environment variable '{env_var}' is not set")
+
+    return env_value
+
+
+# Register the constructor
+yaml.add_constructor("!env", env_constructor, yaml.SafeLoader)
 
 
 @dataclass
@@ -18,6 +33,7 @@ class _Config(Mapping):
     def __len__(self):
         return len(self.__dataclass_fields__)
 
+
 @dataclass
 class MqttConfig(_Config):
     host: str
@@ -25,12 +41,19 @@ class MqttConfig(_Config):
     username: Optional[str] = None
     password: Optional[str] = None
 
+    def __post_init__(self):
+        setattr(self, "port", int(self.port))
+
 
 @dataclass
 class LocationConfig(_Config):
     latitude: float
     longitude: float
     timezone: str
+
+    def __post_init__(self):
+        setattr(self, "latitude", float(self.latitude))
+        setattr(self, "longitude", float(self.longitude))
 
 
 @dataclass
@@ -73,6 +96,7 @@ class SensorConfig(_Config):
 class InverterConfig(_Config):
     topic: str
     model: str
+
 
 @dataclass
 class LoopConfig(_Config):

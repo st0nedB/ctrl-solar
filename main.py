@@ -1,8 +1,7 @@
-import json
 import rootutils
+root = rootutils.setup_root(__file__, dotenv=True, pythonpath=True, cwd=False)
 
-root = rootutils.setup_root(__file__, pythonpath=True, cwd=False)
-
+import json
 from ctrlsolar.io import (
     Mqtt,
     MqttSensor,
@@ -10,7 +9,7 @@ from ctrlsolar.io import (
     SumSensor,
     PropertySensor,
 )
-from ctrlsolar.inverter import Deye2MqttFactory, DeyeSunM160G4
+from ctrlsolar.inverter import *
 from ctrlsolar.battery import GroBroFactory
 from ctrlsolar.controller import (
     ReduceConsumption,

@@ -81,7 +81,7 @@ class ReduceConsumption(Controller):
             )
         )
         logger.info(
-            "Power available?\t{x}".format(
+            "Solar Power Available?\t{x}".format(
                 x=f"{available}" if available is not None else "N/A"
             )
         )

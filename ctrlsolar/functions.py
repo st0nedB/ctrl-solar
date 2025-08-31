@@ -5,7 +5,7 @@ __all__ = ["running_mean", "check_properties"]
 logger = logging.getLogger(__name__)
 
 
-def exponential_smoothing(values: list, alpha=0.5) -> float:
+def exponential_smoothing(values: list, alpha=0.2) -> float:
     if len(values) < 2:
         return values[-1]
 

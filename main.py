@@ -50,9 +50,10 @@ def main():
             json.loads(y)["ENERGY"]["Power"]
         ),
     )
+    meter_update_interval = 10
     meter_smooth = ExponentialSmoothing(
         sensor=meter,
-        last_k=10,
+        last_k=int(os.environ["UPDATE_INTERVAL"]) // meter_update_interval,
     )
 
     weather = OpenMeteoForecast(
@@ -86,12 +87,18 @@ def main():
         serial_number=os.environ["BATTERY1_SN"],
         panels=panels[:2],
         n_batteries_stacked=1,
+        use_smoothing=True,
+        mqtt_update_interval=5,
+        loop_update_interval=int(os.environ["UPDATE_INTERVAL"])
     )
     battery_2 = GroBroFactory.initialize(
         mqtt=mqtt,
         serial_number=os.environ["BATTERY2_SN"],
         panels=panels[2:],
         n_batteries_stacked=1,
+        use_smoothing=True,
+        mqtt_update_interval=5,
+        loop_update_interval=int(os.environ["UPDATE_INTERVAL"])
     )
     battery_controller = DCBatteryOptimizer(
         batteries=[battery_1, battery_2],

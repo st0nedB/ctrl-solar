@@ -10,16 +10,28 @@ logger = logging.getLogger(__name__)
 class ExponentialSmoothing(Sensor):
     def __init__(self, sensor: Sensor, last_k: int = 10):
         self.sensor = sensor
-        self.values = deque([None] * last_k, maxlen=last_k)
+        self.last_k = last_k
+        self._smooth_func = exponential_smoothing
+
+    @property
+    def buffer(self) -> list:
+        return list(self.sensor.buffer)
 
     def get(self) -> float | None:
-        self.values.append(self.sensor.get())
-        logger.debug(f"Current values in smoothing window:\t {list(self.values)}")
-        filtered_values = [v for v in self.values if v is not None]
+        logger.debug(
+            f"Last {self.last_k} values in sensor buffer:\t {list(self.buffer[-self.last_k:])}"
+        )
+        filtered_values = [v for v in self.buffer[-self.last_k :] if v is not None]
         if not filtered_values:
             return None
 
-        return exponential_smoothing(filtered_values)
+        return self._smooth_func(filtered_values)
+
+
+class AverageSmoothing(ExponentialSmoothing):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._smooth_func = lambda x: sum(x) / len(x)
 
 
 class SumSensor(Sensor):
@@ -33,6 +45,7 @@ class SumSensor(Sensor):
             return None
 
         return self.filter(sum(values))
+
 
 class PropertySensor(Sensor):
     def __init__(self, instance: object, property: str, filter: Callable = lambda x: x):

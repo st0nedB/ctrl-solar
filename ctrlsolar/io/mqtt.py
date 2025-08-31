@@ -50,21 +50,23 @@ class MqttSensor(Sensor):
         mqtt: Mqtt,
         topic: str,
         filter: Callable = lambda x: x,
+        *args,
+        **kwargs,
     ):
+        super().__init__(*args, **kwargs)
         self.topic = topic
-        self._readings = deque(10 * [None], maxlen=10)
         self.filter = filter
         mqtt.subscribe(topic, self._on_message)
 
     def _on_message(self, payload: str):
-        self._readings.append(self.filter(payload))
+        self._buffer.append(self.filter(payload))
         return
 
     def get(self):
-        if not self._readings:
+        if not self._buffer:
             return None
 
-        message = self._readings[-1]
+        message = self._buffer[-1]
         return message
 
 

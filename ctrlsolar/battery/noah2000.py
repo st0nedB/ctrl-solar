@@ -2,7 +2,8 @@ from ctrlsolar.battery.battery import DCCoupledBattery
 from ctrlsolar.io.io import Sensor, Consumer
 from ctrlsolar.panels.panels import Panel
 from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
-from typing import Literal
+from ctrlsolar.io.filters import AverageSmoothing
+from typing import Literal, Optional
 import json
 import logging
 
@@ -67,9 +68,7 @@ class Noah2000(DCCoupledBattery):
                     break
 
             if numeric_mode is not None:
-                logger.debug(
-                    f"Setting new mode `{mode}` ({numeric_mode})."
-                )
+                logger.debug(f"Setting new mode `{mode}` ({numeric_mode}).")
                 self.mode_consumer.set(numeric_mode)
             else:
                 logger.warning(f"Mode {mode} is not supported! Skipping set.")
@@ -146,7 +145,16 @@ class GroBroFactory:
         serial_number: str,
         panels: list[Panel],
         n_batteries_stacked: int = 1,
+        use_smoothing: bool = False,
+        mqtt_update_interval: Optional[int] = None,
+        loop_update_interval: Optional[int] = None,
     ) -> Noah2000:
+        if use_smoothing:
+            if (mqtt_update_interval is None) | (loop_update_interval is None):
+                raise ValueError(
+                    f"Found `use_smoothing=True. Smoothing requires values for `mqtt_uopdate_interval` and `loop_update_interval`, but found None."
+                )
+
         state_of_charge_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
@@ -166,6 +174,11 @@ class GroBroFactory:
                 json.loads(y)["out_power"]
             ),
         )
+        if use_smoothing:
+            output_power_sensor = AverageSmoothing(
+                sensor=output_power_sensor,
+                last_k=loop_update_interval // mqtt_update_interval,  # type: ignore
+            )
         solar_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
@@ -173,6 +186,11 @@ class GroBroFactory:
                 json.loads(y)["pv_tot_power"]
             ),
         )
+        if use_smoothing:
+            solar_sensor = AverageSmoothing(
+                sensor=solar_sensor,
+                last_k=loop_update_interval // mqtt_update_interval,  # type: ignore
+            )
         discharge_power_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",
@@ -195,6 +213,11 @@ class GroBroFactory:
                 )
             )(json.loads(y)["charging_discharging"]),
         )
+        if use_smoothing:
+            charge_power_sensor = AverageSmoothing(
+                sensor=charge_power_sensor,
+                last_k=loop_update_interval // mqtt_update_interval,  # type: ignore
+            )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial_number.upper()}/state",

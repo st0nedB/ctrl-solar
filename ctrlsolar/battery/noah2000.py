@@ -44,7 +44,7 @@ class Noah2000(DCCoupledBattery):
         self.todays_production_sensor = todays_production_sensor
         self.total_production_sensor = total_production_sensor
         self.mode_consumer = mode_consumer
-        self.capacity = n_batteries_stacked * 2048
+        self.capacity = n_batteries_stacked * 2048  # raw capacity in Wh
 
     @property
     def state_of_charge(self) -> float | None:

@@ -16,6 +16,7 @@ __all__ = [
 class Battery(ABC):
     max_power: int  # in [W]
     capacity: int  # in [Wh]
+    serial_number: str  # battery serial number
 
     @property
     @abstractmethod
@@ -54,7 +55,8 @@ class Battery(ABC):
 
 
 class DCCoupledBattery(Battery):
-    def __init__(self, panels: list[Panel]):
+    def __init__(self, serial_number: str, panels: list[Panel]):
+        self.serial_number
         self.panels = panels
         self._modes = {
             0: "load_first",

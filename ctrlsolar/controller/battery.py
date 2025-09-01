@@ -113,7 +113,7 @@ class DCBatteryOptimizer(Controller):
         logger.info(
             "  Discharge\t{x} W".format(
                 x=(
-                    f"{battery.discharge_power:.1f}"
+                    f"{abs(battery.discharge_power):.1f}"
                     if battery.discharge_power is not None
                     else "N/A"
                 )

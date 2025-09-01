@@ -170,7 +170,7 @@ class DCBatteryOptimizer(Controller):
                         if remaining_load_first > 0:
                             battery.mode = "battery_first"
                             self._daily_full_charge_switches.add(ii)
-                            logger.info(f"Battery {ii} mode is now `battery_first`.")
+                            logger.info(f"Battery {ii} mode switched to `battery_first`.")
 
             # production has ended for all batteries
             if current_hour >= max(production_ends):

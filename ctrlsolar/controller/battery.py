@@ -68,7 +68,7 @@ class DCBatteryOptimizer(Controller):
         return sum([bb.mode == "load_first" for bb in self.batteries])
 
     def log_battery_status(self, battery: DCCoupledBattery, idx: int):
-        logger.info(f"Battery {idx} - {battery.serial_number}")
+        logger.info(f"Battery {idx} - SN {battery.serial_number}")
         logger.info(
             "  SoC\t\t{x} %".format(
                 x=(

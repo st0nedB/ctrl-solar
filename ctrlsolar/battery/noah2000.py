@@ -251,6 +251,7 @@ class GroBroFactory:
         )
 
         return Noah2000(
+            serial=serial,
             state_of_charge_sensor=state_of_charge_sensor,
             output_power_sensor=output_power_sensor,
             solar_sensor=solar_sensor,

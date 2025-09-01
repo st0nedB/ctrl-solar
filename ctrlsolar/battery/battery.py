@@ -55,8 +55,8 @@ class Battery(ABC):
 
 
 class DCCoupledBattery(Battery):
-    def __init__(self, serial_number: str, panels: list[Panel]):
-        self.serial_number
+    def __init__(self, serial: str, panels: list[Panel]):
+        self.serial_number = serial
         self.panels = panels
         self._modes = {
             0: "load_first",

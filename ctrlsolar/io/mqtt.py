@@ -1,5 +1,4 @@
 from typing import Optional, Callable, Optional
-from collections import deque
 import paho.mqtt.client as mqtt
 import logging
 from ctrlsolar.io.io import Sensor, Consumer
@@ -75,6 +74,6 @@ class MqttConsumer(Consumer):
         self.mqtt = mqtt
         self.topic = topic
 
-    def set(self, value: str):
+    def set(self, value: str | int | float):
         self.mqtt.client.publish(self.topic, value)
         return

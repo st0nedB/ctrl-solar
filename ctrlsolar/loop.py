@@ -23,6 +23,7 @@ class Loop:
                 for cc in self.controller:
                     print()
                     logger.info(f"Update started for {cc.name}.")
+                    logger.info(f"--------")
                     cc.update()
 
                 time.sleep(self.update_interval)

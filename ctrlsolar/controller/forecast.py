@@ -56,7 +56,6 @@ class ProductionForecast(Controller):
             else "N/A"
         )
 
-        logger.info(f"--------")
         logger.info(f"Production Forecast for today (age: {forecast_age:.0f} minutes)")
         logger.info(
             "Until now\t\t{x}".format(

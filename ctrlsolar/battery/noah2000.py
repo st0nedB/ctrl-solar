@@ -163,8 +163,8 @@ class GroBroFactory:
         )
         mode_sensor = MqttSensor(
             mqtt=mqtt,
-            topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (json.loads(y)["priority_mode"]),
+            topic=f"homeassistant/number/grobro/{serial.upper()}/slot1_mode/get",
+            filter=lambda x: int(x) if x is not None else None,
         )
         output_power_sensor = MqttSensor(
             mqtt=mqtt,
@@ -249,6 +249,13 @@ class GroBroFactory:
             mqtt=mqtt,
             topic=f"homeassistant/number/grobro/{serial.upper()}/slot1_mode/set",
         )
+        
+        # to ensure all sensors can read the current state a read-all is triggered
+        trigger_read_all = MqttConsumer(
+            mqtt=mqtt,
+            topic=f"homeassistant/button/grobro/{serial.upper()}/read_all/read"
+        )
+        trigger_read_all.set("PRESS")
 
         return Noah2000(
             serial=serial,

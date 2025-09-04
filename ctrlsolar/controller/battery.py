@@ -154,15 +154,16 @@ class DCBatteryOptimizer(Controller):
         else:
             skip_update = False
 
-        for ii, battery in enumerate(self.batteries):
-            self.log_battery_status(battery, ii)
-
         cycle = self._get_current_cycle_state()
         if cycle is None:
             logger.warning(f"Current cycle undertermined. Skipping update!")
             skip_update = True
         else:
-            logger.info(f"Based on panel forecasts the current cycle is {cycle}.")
+            logger.info(f"Based on panel forecasts the current cycle is `{cycle}`.")
+
+        for ii, battery in enumerate(self.batteries):
+            logger.info("Pre-Update status summary:")
+            self.log_battery_status(battery, ii)
 
         if not skip_update:
             if cycle == "pending":  # production has not started for any battery

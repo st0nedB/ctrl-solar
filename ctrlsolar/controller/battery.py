@@ -161,8 +161,8 @@ class DCBatteryOptimizer(Controller):
         else:
             logger.info(f"Based on panel forecasts the current cycle is `{cycle}`.")
 
+        logger.info("Pre-Update status summary:")
         for ii, battery in enumerate(self.batteries):
-            logger.info("Pre-Update status summary:")
             self.log_battery_status(battery, ii)
 
         if not skip_update:

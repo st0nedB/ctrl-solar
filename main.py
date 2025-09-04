@@ -36,7 +36,6 @@ def main():
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
 
-    # config = Config.from_yaml("/app/config.yaml")
     config = Config.from_yaml("config.yaml")
 
     mqtt = Mqtt(**config.mqtt)

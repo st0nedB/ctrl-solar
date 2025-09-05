@@ -157,7 +157,7 @@ class GroBroFactory:
         state_of_charge_sensor = MqttSensor(
             mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (lambda x: float(x) if x is not None else 0)(
+            filter=lambda y: (lambda x: float(x) / 100 if x is not None else 0)(
                 json.loads(y)["tot_bat_soc_pct"]
             ),
         )

@@ -91,7 +91,7 @@ class DCBatteryOptimizer(Controller):
         logger.info(
             "  SoC\t\t{x} %".format(
                 x=(
-                    f"{battery.state_of_charge:.1f}"
+                    f"{100 * battery.state_of_charge:.1f}"
                     if battery.state_of_charge is not None
                     else "N/A"
                 )

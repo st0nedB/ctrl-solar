@@ -76,12 +76,12 @@ class ReduceConsumption(Controller):
             )
         )
         logger.info(
-            "Production Limit\t{x}".format(
+            "Production limit\t{x}".format(
                 x=f"{limit:.1f} W" if limit is not None else "N/A"
             )
         )
         logger.info(
-            "Solar Power Available?\t{x}".format(
+            "Power available?\t{x}".format(
                 x=f"{available}" if available is not None else "N/A"
             )
         )

@@ -81,7 +81,7 @@ class Noah2000(DCCoupledBattery):
         full = None
         if self.state_of_charge is not None:
             if self.charge_limit is not None:
-                full = self.state_of_charge > self.charge_limit
+                full = self.state_of_charge > self.charge_limit / 100
 
         return full
 
@@ -90,7 +90,7 @@ class Noah2000(DCCoupledBattery):
         empty = None
         if self.state_of_charge is not None:
             if self.discharge_limit is not None:
-                empty = self.state_of_charge < self.discharge_limit
+                empty = self.state_of_charge < self.discharge_limit / 100
 
         return empty
 

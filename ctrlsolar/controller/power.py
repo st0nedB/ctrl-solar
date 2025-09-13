@@ -58,8 +58,6 @@ class ReduceConsumption(Controller):
             logger.warning(
                 "Found `None` in one or multiple sensor readings. Update is skipped."
             )
-        elif not available:
-            logger.info("No production capacity available. Update skipped.")
         else:
             skip_update = False
 
@@ -91,9 +89,16 @@ class ReduceConsumption(Controller):
             # Positive consumption means we're importing from grid (need more production)
             # Negative consumption means we're exporting to grid (need less production)
             logger.info(f"Consumption \t\t{consumption:.1f} W {'(importing)' if consumption > 0 else '(exporting)' if consumption < 0 else '(balanced)'}")
-
+            
+            if not available:
+                logger.info("No production capacity available. Setting P_out=200 W as a safety.")
+                new_limit = 200 
+                # Apply the new limit
+                self.inverter.production_limit = new_limit
+                logger.info(f"Production limit updated to {new_limit:.1f} W")
+                
             # Check if adjustment is needed
-            if abs(consumption) > self.control_threshold:
+            elif abs(consumption) > self.control_threshold:
                 logger.info(f"Consumption of {consumption:.1f} W exceeds control threshold of {self.control_threshold:.1f} W")
 
                 new_limit = limit + consumption + self.offset  # type: ignore

@@ -53,6 +53,10 @@ class Battery(ABC):
     def charge_power(self) -> float | None:
         pass
 
+    @abstractmethod
+    def refresh(self) -> None:
+        pass
+
 
 class DCCoupledBattery(Battery):
     def __init__(self, serial: str, panels: list[Panel]):
@@ -69,17 +73,19 @@ class DCCoupledBattery(Battery):
 
     @property
     def predicted_production_by_hour(self) -> pd.Series:
-        return pd.concat([panel.predicted_production_by_hour for panel in self.panels], axis=1).sum(axis=1)
+        return pd.concat(
+            [panel.predicted_production_by_hour for panel in self.panels], axis=1
+        ).sum(axis=1)
 
     def predicted_production_end_hour(self, threshold_kWh: float = 0.2) -> int:
-        production_end = self.predicted_production_by_hour > threshold_kWh*1E3
+        production_end = self.predicted_production_by_hour > threshold_kWh * 1e3
         last_production_time = production_end[::-1].idxmax().time()  # type: ignore -> idx is a time
         last_production_hour = int(last_production_time.strftime("%H"))
 
         return last_production_hour
 
     def predicted_production_start_hour(self, threshold_kWh: float = 0.2) -> int:
-        production_start = self.predicted_production_by_hour > threshold_kWh*1E3
+        production_start = self.predicted_production_by_hour > threshold_kWh * 1e3
         first_production_time = production_start.idxmax().time()  # type: ignore -> idx is a time
         first_production_hour = int(first_production_time.strftime("%H"))
 
@@ -88,7 +94,9 @@ class DCCoupledBattery(Battery):
     def predicted_remaining_production(self):
         current_time = datetime.now().time()
         total_production = self.predicted_production_by_hour
-        remaining_production = total_production[pd.to_datetime(total_production.index).time >= current_time]
+        remaining_production = total_production[
+            pd.to_datetime(total_production.index).time >= current_time
+        ]
 
         return remaining_production.sum()
 

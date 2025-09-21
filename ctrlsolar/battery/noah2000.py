@@ -3,7 +3,7 @@ from ctrlsolar.io.io import Sensor, Consumer
 from ctrlsolar.panels.panels import Panel
 from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
 from ctrlsolar.io.filters import AverageSmoothing
-from typing import Literal, Optional
+from typing import Literal, Optional, Callable
 import json
 import logging
 
@@ -28,6 +28,7 @@ class Noah2000(DCCoupledBattery):
         todays_production_sensor: Sensor,
         total_production_sensor: Sensor,
         mode_consumer: Consumer,
+        read_all_trigger: Optional[Callable] = None,
         n_batteries_stacked: int = 1,
         *args,
         **kwargs,
@@ -44,6 +45,7 @@ class Noah2000(DCCoupledBattery):
         self.todays_production_sensor = todays_production_sensor
         self.total_production_sensor = total_production_sensor
         self.mode_consumer = mode_consumer
+        self.read_all_trigger = read_all_trigger
         self.capacity = n_batteries_stacked * 2048  # raw capacity in Wh
 
     @property
@@ -136,6 +138,14 @@ class Noah2000(DCCoupledBattery):
     def output_power(self) -> float | None:
         return self.output_power_sensor.get()
 
+    def refresh(self) -> None:
+        if self.read_all_trigger is not None:
+            self.read_all_trigger()
+        else:
+            logger.warning(f"No `refresh` consumer provided. Cannot trigger refresh.")
+
+        return
+
 
 class GroBroFactory:
     @classmethod
@@ -149,7 +159,7 @@ class GroBroFactory:
         last_k: Optional[int] = None,
     ) -> Noah2000:
         if use_smoothing:
-            if (last_k is None):
+            if last_k is None:
                 raise ValueError(
                     f"Found `use_smoothing=True. Smoothing requires values for `last_k` but found None."
                 )
@@ -175,8 +185,7 @@ class GroBroFactory:
         )
         if use_smoothing:
             output_power_sensor = AverageSmoothing(
-                sensor=output_power_sensor,
-                last_k=last_k  # type: ignore
+                sensor=output_power_sensor, last_k=last_k  # type: ignore
             )
         solar_sensor = MqttSensor(
             mqtt=mqtt,
@@ -187,8 +196,7 @@ class GroBroFactory:
         )
         if use_smoothing:
             solar_sensor = AverageSmoothing(
-                sensor=solar_sensor,
-                last_k=last_k  # type: ignore
+                sensor=solar_sensor, last_k=last_k  # type: ignore
             )
         discharge_power_sensor = MqttSensor(
             mqtt=mqtt,
@@ -214,8 +222,7 @@ class GroBroFactory:
         )
         if use_smoothing:
             charge_power_sensor = AverageSmoothing(
-                sensor=charge_power_sensor,
-                last_k=last_k  # type: ignore
+                sensor=charge_power_sensor, last_k=last_k  # type: ignore
             )
         charge_limit_sensor = MqttSensor(
             mqtt=mqtt,
@@ -249,13 +256,15 @@ class GroBroFactory:
             mqtt=mqtt,
             topic=f"homeassistant/number/grobro/{serial.upper()}/slot1_mode/set",
         )
-        
+
         # to ensure all sensors can read the current state a read-all is triggered
-        trigger_read_all = MqttConsumer(
+        read_all_consumer = MqttConsumer(
             mqtt=mqtt,
-            topic=f"homeassistant/button/grobro/{serial.upper()}/read_all/read"
+            topic=f"homeassistant/button/grobro/{serial.upper()}/read_all/read",
         )
-        trigger_read_all.set("PRESS")
+        def read_all_trigger() -> None:
+            read_all_consumer.set("PRESS")
+            return
 
         return Noah2000(
             serial=serial,
@@ -270,6 +279,7 @@ class GroBroFactory:
             todays_production_sensor=todays_production_sensor,
             total_production_sensor=total_production_sensor,
             mode_consumer=mode_consumer,
+            read_all_trigger=read_all_trigger,
             n_batteries_stacked=n_batteries_stacked,
             panels=panels,
         )

@@ -149,6 +149,7 @@ class DCBatteryOptimizer(Controller):
             logger.warning(
                 "Found `None` in one or multiple sensor readings. Update is skipped."
             )
+            _ = [bb.refresh() for bb in self.batteries]
         elif all([battery.empty for battery in self.batteries]):
             logger.info(f"All batteries are empty. Update is skipped.")
         else:

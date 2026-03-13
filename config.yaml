@@ -21,6 +21,15 @@ batteries:
         azimuth: 180
         area: 1.9981
         efficiency: 0.22
+      - tilt: 45
+        azimuth: 180
+        area: 1.9981
+        efficiency: 0.22
+      - tilt: 45
+        azimuth: 180
+        area: 1.9981
+        efficiency: 0.22
+
     n_batteries_stacked: 2
     use_smoothing: true
 
@@ -42,7 +51,7 @@ inverter:
 loop:
   update_interval: 60
   power:
-    max_power: 800
+    max_power: 600
     min_power: 80
     control_threshold_W: 50
     offset: -10.0

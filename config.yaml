@@ -13,32 +13,19 @@ batteries:
   - model: "noah2000"
     serial: !env BATTERY1_SN
     panels:
-      - tilt: 22.5
-        azimuth: 90
-        area: 1.9981
-        efficiency: 0.22
-      - tilt: 22.5
-        azimuth: 90
-        area: 1.9981
-        efficiency: 0.22
-    n_batteries_stacked: 1
-    use_smoothing: true
-  - model: "noah2000"
-    serial: !env BATTERY2_SN
-    panels:
-      - tilt: 22.5
-        azimuth: 90
-        area: 1.9981
-        efficiency: 0.22
-      - tilt: 22.5
+      - tilt: 45
         azimuth: 180
         area: 1.9981
         efficiency: 0.22
-    n_batteries_stacked: 1
+      - tilt: 45
+        azimuth: 180
+        area: 1.9981
+        efficiency: 0.22
+    n_batteries_stacked: 2
     use_smoothing: true
 
 powermeter:
-  topic: "tele/esp_pwr_mtr/SENSOR"
+  topic: "tele/tasmota_799C3C/SENSOR"
   filter:
     dkeys:
       - "ENERGY"

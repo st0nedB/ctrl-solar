@@ -1,17 +1,17 @@
 mqtt:
-  host: !env MQTT_HOST
-  port: !env MQTT_PORT
-  username: !env MQTT_USERNAME
-  password: !env MQTT_PASSWORD
+  host: localhost
+  port: 1883
+  username:
+  password:
 
-location:
-  latitude: !env PLANT_LATITUDE
-  longitude: !env PLANT_LONGITUDE
-  timezone: !env PLANT_TIMEZONE
+site:
+  latitude: 0.0
+  longitude: 0.0
+  timezone: UTC
 
 batteries:
-  - model: "noah2000"
-    serial: !env BATTERY1_SN
+  - type: noah2000
+    serial: BATTERY1
     panels:
       - tilt: 45
         azimuth: 180
@@ -30,30 +30,34 @@ batteries:
         area: 1.9981
         efficiency: 0.22
 
-    n_batteries_stacked: 2
+    stack_count: 2
     use_smoothing: true
 
 powermeter:
+  type: mqtt_sensor
   topic: "tele/tasmota_799C3C/SENSOR"
   filter:
-    dkeys:
+    path:
       - "ENERGY"
       - "Power"
     dtype: "float"
     scale: 1.0
-  use_smoothing: true
-  update_interval: 10
+  smoothing:
+    kind: exponential
+    source_interval: 10
 
 inverter:
-  model: "DeyeSunM160G4"
-  topic: "deye"
+  transport: deye_mqtt
+  model: DeyeSunM160G4
+  topic_prefix: deye
 
-loop:
-  update_interval: 60
-  power:
+controllers:
+  - type: reduce_consumption
     max_power: 600
     min_power: 80
     control_threshold_W: 50
     offset: -10.0
-  battery:
-    full_threshold: 0.95
+  - type: production_forecast
+
+loop:
+  update_interval: 60

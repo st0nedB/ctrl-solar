@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Optional
+from typing import Optional, Callable
 import paho.mqtt.client as mqtt
 import logging
 from ctrlsolar.io.io import Sensor, Consumer
@@ -16,7 +16,9 @@ class Mqtt:
     ):
         self.broker = host
         self.port = port
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+        )
         self.subscriptions = {}
         self.client.on_message = self._on_message
         if username is not None:
@@ -36,7 +38,7 @@ class Mqtt:
 
         self.subscriptions[topic].append(callback)
 
-    def _on_message(self, client, userdata, message):
+    def _on_message(self, client, userdata, message, reason_code, properties):
         topic = message.topic
         payload = message.payload.decode()
         for cb in self.subscriptions.get(topic, []):

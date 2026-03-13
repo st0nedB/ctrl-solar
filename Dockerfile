@@ -3,6 +3,6 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY . /app
 
-RUN python -m pip install -r /app/requirements.txt
+RUN python -m pip install /app
 
-CMD ["python", "/app/main.py"]
+CMD ["ctrlsolar", "run", "--config", "/app/config.yaml"]

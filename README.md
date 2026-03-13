@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A Python framework to monitor and control off-grid or grid-tied solar installations via a pluggable architecture.
-Currently includes support for for Deye inverters and Noah2000 batteries via MQTT integrations, `main.py` shows how to implement a  zero-consumption control to keep your home’s grid draw at zero and avoid over-production.
+Currently includes support for for Deye inverters and Noah2000 batteries via MQTT integrations, and the packaged CLI assembles a zero-consumption control loop to keep your home’s grid draw at zero and avoid over-production.
 
 > [!IMPORTANT]
 > This project is work-in-progress. Expect errors and bugs. I'll try to support on a best-effort basis.
@@ -39,7 +39,7 @@ Currently includes support for for Deye inverters and Noah2000 batteries via MQT
 
 ## 📦 Installation & Usage
 
-No manual installation is required—**ctrl-solar** is packaged with \[rootutils], and the default entrypoint is configured in Docker Compose. Simply run:
+No manual installation is required. The application runs through the packaged `ctrlsolar` entrypoint, and Docker Compose uses that same entrypoint. Simply run:
 
 ```bash
 docker-compose up -d
@@ -55,17 +55,20 @@ docker-compose logs -f --tail=100
 
 ## ⚙️ Configuration
 
-Create a `.env` file in the project root with your broker credentials and parameters:
+Edit [`config.yaml`](/root/svc02.emptyvoid.xyz/ctrl-solar/config.yaml) for the main runtime configuration. For deployment-specific overrides, environment variables can override nested config values using the `CTRLSOLAR__...` prefix:
 
 ```dotenv
-MQTT_URL=mqtt.example.com
-MQTT_PORT=1883
-MQTT_USER=your_username
-MQTT_PASSWD=your_password
+CTRLSOLAR__MQTT__HOST=mqtt.example.com
+CTRLSOLAR__MQTT__PORT=1883
+CTRLSOLAR__MQTT__USERNAME=your_username
+CTRLSOLAR__MQTT__PASSWORD=your_password
+CTRLSOLAR__SITE__LATITUDE=47.1234
+CTRLSOLAR__SITE__LONGITUDE=12.5678
+CTRLSOLAR__SITE__TIMEZONE=Europe/Berlin
 ```
 
 > [!NOTE]
-> If you are not planning to use the provided MQTT classes you can skip the `.env` file. Adapt the main.py with your own Sensor configurations. The current version contains example values.
+> The application no longer depends on `rootutils` or YAML `!env` tags. Local runs and Docker use the same packaged entrypoint, and sensitive deployment values such as plant coordinates can stay out of the checked-in config via env overrides.
 
 ---
 
@@ -74,13 +77,12 @@ MQTT_PASSWD=your_password
 ### From source
 
 ```bash
-# Ensure `.env` is in place, then:
-python main.py
+python -m ctrlsolar run --config ./config.yaml
 ```
 
 ### With Docker
 
-1. Adapt the `main.py` with your own setup
+1. Adapt `config.yaml` with your own setup
 
 2. Build and run with Docker Compose:
 
@@ -96,9 +98,13 @@ python main.py
 .
 ├── Dockerfile
 ├── docker-compose.yaml
-├── main.py            # Entry point: configures transports, devices, controller, loop
+├── main.py            # Compatibility wrapper for the packaged CLI
 ├── requirements.txt
+├── examples/
+│   └── forecast.py    # Standalone forecast example
 └── ctrlsolar/
+    ├── assembly   # Runtime assembly from configuration
+    ├── config     # Config defaults, models, and loader
     ├── io         # Sensor, Consumer abstractions and MQTT examples
     ├── inverter   # Inverter implementations
     ├── batter     # Battery implementations
@@ -125,6 +131,10 @@ Contributions are welcome! Please open an issue or submit a pull request.
 * **Custom control strategies**
 
   * Subclass `Controller` and implement `update()` for bespoke logic.
+
+* **Examples**
+
+  * Standalone experiments such as the forecast demo live under [`examples/`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples).
 
 ---
 

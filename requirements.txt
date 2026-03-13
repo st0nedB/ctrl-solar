@@ -1,4 +1,3 @@
-rootutils
 paho-mqtt
 rich
 requests

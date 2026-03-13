@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ctrlsolar"
+version = "0.1.0"
+description = "Monitoring and control framework for solar installations."
+requires-python = ">=3.11"
+dependencies = [
+  "paho-mqtt",
+  "rich",
+  "requests",
+  "pandas",
+  "pvlib",
+  "pyyaml",
+]
+
+[project.scripts]
+ctrlsolar = "ctrlsolar.cli:main"
+
+[tool.setuptools.package-data]
+ctrlsolar = ["config/defaults.yaml"]

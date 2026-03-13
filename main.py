@@ -40,6 +40,7 @@ def main():
 
     mqtt = Mqtt(**config.mqtt)
     mqtt.connect()
+    controllers = []
 
     weather = OpenMeteoForecast(**config.location)
 
@@ -64,10 +65,13 @@ def main():
         )
         batteries.append(battery)
 
-    battery_controller = DCBatteryOptimizer(
-        batteries=batteries,
-        **config.loop.battery,
-    )
+    if len(config.batteries) > 1:
+        battery_controller = DCBatteryOptimizer(
+            batteries=batteries,
+            **config.loop.battery,
+        )
+        controllers.append(battery_controller)
+
 
     inverter = Deye2MqttFactory.initialize(
         mqtt=mqtt, topic="deye", inverter=eval(config.inverter.model)
@@ -79,6 +83,7 @@ def main():
     power_controller = ReduceConsumption(
         inverter=inverter, meter=meter, available=available, **config.loop.power
     )
+    controllers.append(power_controller)
 
     sensor_today = SumSensor(
         sensors=[PropertySensor(bb, "todays_production") for bb in batteries],
@@ -92,9 +97,10 @@ def main():
     forecast_controller = ProductionForecast(
         panels=panels, weather=weather, sensor_today=sensor_today
     )
+    controllers.append(forecast_controller)
 
     loop = Loop(
-        controller=[forecast_controller, battery_controller, power_controller],
+        controller=controllers,
         update_interval=config.loop.update_interval,
     )
     loop.run()

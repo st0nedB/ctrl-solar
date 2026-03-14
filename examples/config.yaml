@@ -34,7 +34,7 @@ batteries:
 
 powermeter:
   type: mqtt_sensor
-  topic: tele/tasmota_799C3C/SENSOR
+  topic: tele/tasmota_xxxxxx/SENSOR
   filter:
     path:
       - ENERGY

@@ -29,18 +29,17 @@ batteries:
         azimuth: 180
         area: 1.9981
         efficiency: 0.22
-
     stack_count: 2
     use_smoothing: true
 
 powermeter:
   type: mqtt_sensor
-  topic: "tele/tasmota_799C3C/SENSOR"
+  topic: tele/tasmota_xxxxxx/SENSOR
   filter:
     path:
-      - "ENERGY"
-      - "Power"
-    dtype: "float"
+      - ENERGY
+      - Power
+    dtype: float
     scale: 1.0
   smoothing:
     kind: exponential

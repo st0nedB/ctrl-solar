@@ -36,16 +36,27 @@ Currently includes support for for Deye inverters and Noah2000 batteries via MQT
 
 ## 📦 Installation & Usage
 
-No manual installation is required. The application runs through the packaged `ctrlsolar` entrypoint, and Docker Compose uses that same entrypoint. Simply run:
+The primary deployment target is a published Docker image. You should not need to clone this repo just to run the controller.
+
+## 🚀 Quick Start
+
+Create a local `config.yaml`, then run:
 
 ```bash
-docker-compose up -d
+docker run --rm \
+  --name ctrl-solar \
+  -v "$(pwd)/config.yaml:/app/config.yaml:ro" \
+  -e CTRLSOLAR__MQTT__HOST=mqtt.example.com \
+  -e CTRLSOLAR__MQTT__PORT=1883 \
+  -e CTRLSOLAR__MQTT__USERNAME=your_username \
+  -e CTRLSOLAR__MQTT__PASSWORD=your_password \
+  ghcr.io/emptyvoid/ctrl-solar:latest
 ```
 
 Logs will display colorized, real‑time updates:
 
 ```bash
-docker-compose logs -f --tail=100
+docker logs -f --tail=100 ctrl-solar
 ```
 
 ---
@@ -59,32 +70,38 @@ CTRLSOLAR__MQTT__HOST=mqtt.example.com
 CTRLSOLAR__MQTT__PORT=1883
 CTRLSOLAR__MQTT__USERNAME=your_username
 CTRLSOLAR__MQTT__PASSWORD=your_password
-CTRLSOLAR__SITE__LATITUDE=47.1234
-CTRLSOLAR__SITE__LONGITUDE=12.5678
-CTRLSOLAR__SITE__TIMEZONE=Europe/Berlin
+CTRLSOLAR__SITE__LATITUDE=42.46903090913205
+CTRLSOLAR__SITE__LONGITUDE=-71.35063628495487
+CTRLSOLAR__SITE__TIMEZONE=America/New_York
 ```
 
 > [!NOTE]
-> The application no longer depends on `rootutils` or YAML `!env` tags. Local runs and Docker use the same packaged entrypoint, and sensitive deployment values such as plant coordinates can stay out of the checked-in config via env overrides.
+> The application no longer depends on `rootutils` or YAML `!env` tags. Docker and local source runs use the same packaged entrypoint.
 
 ---
 
-## 🚀 Usage
+## 🐳 Docker Compose
 
-### From source
+The checked-in [docker-compose.yaml](/root/svc02.emptyvoid.xyz/ctrl-solar/docker-compose.yaml) is now an example consumer deployment using a published image. The only required local file is `config.yaml`.
 
 ```bash
-python -m ctrlsolar run --config ./config.yaml
+docker compose up -d
+docker compose logs -f --tail=100
 ```
 
-### With Docker
+If you prefer, keep sensitive values in a local `.env` file consumed by Docker Compose.
 
-1. Adapt `config.yaml` with your own setup
+---
 
-2. Build and run with Docker Compose:
+## 🧪 From Source
+
+Cloning the repo is only needed for development or local source runs.
 
 ```bash
-  docker compose up -d
+python -m venv .venv
+. .venv/bin/activate
+pip install -e .
+python -m ctrlsolar run --config ./config.yaml
 ```
 
 ---
@@ -94,9 +111,10 @@ python -m ctrlsolar run --config ./config.yaml
 ```
 .
 ├── Dockerfile
-├── docker-compose.yaml
+├── docker-compose.yaml  # Published-image example deployment
 ├── main.py            # Compatibility wrapper for the packaged CLI
 ├── requirements.txt
+├── config.yaml        # Sample runtime configuration
 ├── examples/
 │   └── forecast.py    # Standalone forecast example
 └── ctrlsolar/
@@ -132,6 +150,18 @@ Contributions are welcome! Please open an issue or submit a pull request.
 * **Examples**
 
   * Standalone experiments such as the forecast demo live under [`examples/`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples).
+
+---
+
+## 📦 Publishing
+
+The intended release model is a published container image, for example:
+
+```text
+ghcr.io/emptyvoid/ctrl-solar:latest
+```
+
+A GitHub Actions workflow now builds the image on pull requests and publishes it to GHCR on pushes to `main` and tags like `v0.1.0`. Tagged releases can therefore pin immutable image versions instead of tracking `latest`.
 
 ---
 

@@ -5,9 +5,9 @@ mqtt:
   password:
 
 site:
-  latitude: 0.0
-  longitude: 0.0
-  timezone: UTC
+  latitude: 42.46903090913205
+  longitude: -71.35063628495487
+  timezone: America/New_York
 
 batteries:
   - type: noah2000

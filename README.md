@@ -3,31 +3,7 @@
 <!-- [![PyPI version](https://img.shields.io/pypi/v/ctrl-solar.svg)](https://pypi.org/project/ctrl-solar/) -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A Python framework to monitor and control off-grid or grid-tied solar installations via a pluggable architecture.
-Currently includes support for for Deye inverters and Noah2000 batteries via MQTT integrations, and the packaged CLI assembles a zero-consumption control loop to keep your home’s grid draw at zero and avoid over-production.
-
----
-
-## 🔌 Extensible Architecture
-
-* **Sensor/Consumer interface**
-
-  * Abstract base classes (`Sensor`, `Consumer`) define how to read values and apply actions.
-  * MQTT implementation (`MqttSensor`, `MqttConsumer`) provided as an example; add HTTP, Modbus, or other transports by subclassing.
-* **Device support**
-
-  * `Inverter` and `Battery` base classes define common interfaces.
-  * Includes `DeyeSunM160G4` and `Noah2000` implementations; easily add other brands by extending these bases.
-* **Controller core**
-
-  * `ZeroConsumptionController` implements a strategy to match solar production and battery output to household load, avoiding grid draw.
-  * Write new control strategies by subclassing the `Controller` base class.
-* **Loop abstraction**
-
-  * `Loop` helper schedules one or more controllers at a configurable interval.
-* **Rich logging**
-
-  * Colorized console output via [Rich](https://github.com/Textualize/rich)
+A local-first solar control application for off-grid or grid-tied setups. It reads measurements from MQTT, tracks battery state, applies a control loop to limit inverter output, and can optionally use weather-based production forecasting to make better decisions.
 
 ---
 
@@ -83,31 +59,14 @@ Typical split:
 
 ## 🐳 Docker Compose
 
-The checked-in [docker-compose.yaml](/root/svc02.emptyvoid.xyz/ctrl-solar/docker-compose.yaml) is a consumer deployment example using the published image.
+For a human-friendly compose example, use the files under [`examples/`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples):
 
-Required local files:
-- `config.yaml`
-- optionally `.env` for Docker Compose variable expansion
+- [`examples/README.md`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples/README.md)
+- [`examples/docker-compose.yaml`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples/docker-compose.yaml)
+- [`examples/.env`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples/.env)
+- [`examples/config.yaml`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples/config.yaml)
 
-```bash
-docker compose up -d
-docker compose logs -f --tail=100
-```
-
-Keep sensitive values in a local `.env` file if you do not want them embedded directly in the compose file.
-
----
-
-## 🧪 From Source
-
-Cloning the repo is only needed for development or direct source runs.
-
-```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -e .
-python -m ctrlsolar run --config ./config.yaml
-```
+Those files are meant to be copied into a deployment directory and edited by hand.
 
 ---
 
@@ -119,7 +78,10 @@ python -m ctrlsolar run --config ./config.yaml
 ├── docker-compose.yaml  # Published-image example deployment
 ├── config.yaml        # Sample runtime configuration
 ├── examples/
-│   └── forecast.py    # Standalone forecast example
+│   ├── README.md
+│   ├── docker-compose.yaml
+│   ├── .env
+│   └── config.yaml
 └── ctrlsolar/
     ├── assembly   # Runtime assembly from configuration
     ├── config     # Config defaults, models, and loader
@@ -132,39 +94,15 @@ python -m ctrlsolar run --config ./config.yaml
 
 ---
 
-## 🛠️ Extending
+## 🛠️ Development
 
-This projects aims to be flexible to allow for the plethora of possible individual configurations.
-The existing MQTT implementations for sensors/consumers provide a flexible start. 
-Contributions are welcome! Please open an issue or submit a pull request.
-
-* **Add new transports**
-
-  * Subclass `Sensor`/`Consumer` in `ctrlsolar.io`.
-
-* **Support additional inverters or batteries**
-
-  * Extend `Inverter`/`Battery` in `ctrlsolar.controller`, wire into your transport.
-
-* **Custom control strategies**
-
-  * Subclass `Controller` and implement `update()` for bespoke logic.
-
-* **Examples**
-
-  * Standalone experiments such as the forecast demo live under [`examples/`](/root/svc02.emptyvoid.xyz/ctrl-solar/examples).
-
----
-
-## 📦 Publishing
-
-The intended release model is a published container image, for example:
+For source development, create a local virtual environment, install the package in editable mode, and run `python -m ctrlsolar run --config ./config.yaml`. The published container image is built by GitHub Actions and pushed to GHCR, for example:
 
 ```text
 ghcr.io/emptyvoid/ctrl-solar:latest
 ```
 
-A GitHub Actions workflow now builds the image on pull requests and publishes it to GHCR on pushes to `main` and tags like `v0.1.0`. Tagged releases can therefore pin immutable image versions instead of tracking `latest`.
+The codebase is structured so new transports, device integrations, and controller strategies can be added inside [`ctrlsolar/`](/root/svc02.emptyvoid.xyz/ctrl-solar/ctrlsolar). Contributions are welcome.
 
 ---
 

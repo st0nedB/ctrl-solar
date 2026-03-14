@@ -1,0 +1,15 @@
+services:
+  ctrl-solar:
+    container_name: ctrl-solar
+    image: ghcr.io/emptyvoid/ctrl-solar:latest
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      CTRLSOLAR__MQTT__HOST: ${CTRLSOLAR__MQTT__HOST}
+      CTRLSOLAR__MQTT__PORT: ${CTRLSOLAR__MQTT__PORT:-1883}
+      CTRLSOLAR__MQTT__USERNAME: ${CTRLSOLAR__MQTT__USERNAME:-}
+      CTRLSOLAR__MQTT__PASSWORD: ${CTRLSOLAR__MQTT__PASSWORD:-}
+      CTRLSOLAR__SITE__LATITUDE: ${CTRLSOLAR__SITE__LATITUDE:-}
+      CTRLSOLAR__SITE__LONGITUDE: ${CTRLSOLAR__SITE__LONGITUDE:-}
+      CTRLSOLAR__SITE__TIMEZONE: ${CTRLSOLAR__SITE__TIMEZONE:-}

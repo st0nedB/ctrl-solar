@@ -44,7 +44,7 @@ docker compose logs -f --tail=100
 ---
 ## ⚙️ Configuration
 
-Start from [`config.yaml`](config.yaml). It is the sample runtime configuration expected by both Docker and local source runs.
+Use [`examples/config.yaml`](examples/config.yaml) as the canonical sample configuration.
 
 For deployment-specific overrides, environment variables can override nested config values using the `CTRLSOLAR__...` prefix:
 
@@ -158,7 +158,6 @@ If these checks pass, the setup is usually wired correctly.
 .
 ├── Dockerfile
 ├── docker-compose.yaml  # Published-image example deployment
-├── config.yaml          # Sample runtime configuration
 ├── examples/
 │   ├── README.md
 │   ├── docker-compose.yaml
@@ -184,7 +183,7 @@ python -m venv .venv
 . .venv/bin/activate
 pip install -e .
 python -m unittest discover -s tests -v
-python -m ctrlsolar run --config ./config.yaml
+python -m ctrlsolar run --config ./examples/config.yaml
 ```
 
 The published container image is built by GitHub Actions and pushed to GHCR, for example:

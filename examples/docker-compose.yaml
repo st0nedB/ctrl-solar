@@ -1,7 +1,7 @@
 services:
   ctrl-solar:
     container_name: ctrl-solar
-    image: ghcr.io/emptyvoid/ctrl-solar:latest
+    image: ghcr.io/st0nedb/ctrl-solar:latest
     restart: unless-stopped
     volumes:
       - ./config.yaml:/app/config.yaml:ro

@@ -1,15 +1,14 @@
+from ctrlsolar.abstracts import Controller
 import time
-from ctrlsolar.controller import Controller
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class Loop:
     def __init__(
         self,
         controller: list[Controller] | Controller,
-        update_interval: int = 15,
+        update_interval: int = 60,
     ):
         if isinstance(controller, Controller):
             controller = [controller]
@@ -23,7 +22,7 @@ class Loop:
                 for cc in self.controller:
                     print()
                     logger.info(f"Update started for {cc.name}.")
-                    logger.info(f"--------")
+                    logger.info(f"-----------------------------")
                     cc.update()
 
                 time.sleep(self.update_interval)

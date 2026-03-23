@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctrlsolar"
-version = "0.1.0"
+version = "0.2.0"
 description = "Monitoring and control framework for solar installations."
 requires-python = ">=3.11"
 dependencies = [
@@ -13,11 +13,11 @@ dependencies = [
   "requests",
   "pandas",
   "pvlib",
-  "pyyaml",
+  "hydra-core",
 ]
 
 [project.scripts]
 ctrlsolar = "ctrlsolar.cli:main"
 
 [tool.setuptools.package-data]
-ctrlsolar = ["config/defaults.yaml"]
+ctrlsolar = ["defaults.yaml"]

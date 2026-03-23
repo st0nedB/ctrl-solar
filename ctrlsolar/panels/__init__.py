@@ -1,2 +1,7 @@
-from ctrlsolar.panels.panels import Panel
-from ctrlsolar.panels.weather import OpenMeteoForecast
+from ctrlsolar.panels.panels import GenericPanel
+from ctrlsolar.panels.forecast import OpenMeteoForecast
+
+__all__ = [
+    "GenericPanel", 
+    "OpenMeteoForecast",
+]

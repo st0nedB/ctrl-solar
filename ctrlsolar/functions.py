@@ -6,7 +6,7 @@ __all__ = ["running_mean", "check_properties"]
 logger = logging.getLogger(__name__)
 
 
-def exponential_smoothing(values: list, alpha=0.2) -> float:
+def exponential_smoothing(values: list[float], alpha: float = 0.2) -> float:
     if len(values) < 2:
         return values[-1]
 
@@ -17,12 +17,13 @@ def exponential_smoothing(values: list, alpha=0.2) -> float:
     return ema
 
 
-def running_mean(values: list) -> float:
+def running_mean(values: list[float]) -> float:
     return sum(values) / len(values)
 
 
-def check_properties(instance) -> dict:
-    tmp = {}
+def check_properties(instance: Any) -> dict[str, bool]:
+    """Return a mapping of public, non-callable attributes to non-None status."""
+    tmp: dict[str, bool] = {}
     for prop_name in dir(instance):
         if not prop_name.startswith("_") and hasattr(instance, prop_name):
             prop_value = getattr(instance, prop_name)
@@ -35,7 +36,10 @@ def check_properties(instance) -> dict:
 
 
 def filter_dict_with_keys(
-    x: dict, dkeys: list[str,], dtype: Literal["str", "float", "int"], scale: float = 1.0
+    x: dict[str, Any],
+    dkeys: list[str],
+    dtype: Literal["str", "float", "int"],
+    scale: float = 1.0,
 ) -> Union[str, float, int]:
     val: Any = x
     for key in dkeys:

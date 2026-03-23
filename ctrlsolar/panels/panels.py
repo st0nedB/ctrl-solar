@@ -1,13 +1,13 @@
-from pvlib.irradiance import get_total_irradiance
-from ctrlsolar.panels.weather import OpenMeteoForecast
+from pvlib.irradiance import get_total_irradiance   # type:ignore
+from ctrlsolar.panels.forecast import OpenMeteoForecast
+from ctrlsolar.abstracts.panels import Panel
 import pandas as pd
 import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-
-class Panel:
+class GenericPanel(Panel):
     def __init__(
         self,
         area: float,

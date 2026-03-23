@@ -1,8 +1,5 @@
 from datetime import datetime, timedelta
-from ctrlsolar.io.io import Sensor
-from ctrlsolar.controller.controller import Controller
-from ctrlsolar.panels.panels import Panel
-from ctrlsolar.panels.weather import OpenMeteoForecast
+from ctrlsolar.abstracts import Controller, Panel, Forecast
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,13 +11,13 @@ class ProductionForecast(Controller):
     def __init__(
         self,
         panels: list[Panel],
-        weather: OpenMeteoForecast,
-        sensor_today: Sensor,
+        forecast: Forecast,
+        energy_today: float,
         max_age: timedelta = timedelta(hours=1),
     ):
-        self.weather = weather
+        self.weather = forecast
         self.panels = panels
-        self.sensor_today = sensor_today
+        self.energy_today = energy_today
         self.max_age = max_age
         self._weather_forecast = None
         self._weather_forecast_from = None
@@ -43,13 +40,10 @@ class ProductionForecast(Controller):
         ]
         return sum(p_dcs)
 
-    def production_today(self):
-        return self.sensor_today.get()
-
     def update(self):
         self._update_weather_forecast()
         forecast = self.production_estimate()
-        until_now = self.production_today()
+        until_now = self.energy_today
         forecast_age = (
             (datetime.now() - self._weather_forecast_from).total_seconds() // 60
             if self._weather_forecast_from is not None
@@ -59,12 +53,12 @@ class ProductionForecast(Controller):
         logger.info(f"Production Forecast for today (age: {forecast_age:.0f} minutes)")
         logger.info(
             "Until now\t\t{x}".format(
-                x=f"{1E-3*until_now:.2f} kWh" if until_now is not None else "N/A"
+                x=f"{1E-3*until_now:.2f} kWh"
             )
         )
         logger.info(
             "Estimated\t\t{x}".format(
-                x=f"{1E-3*forecast:.2f} kWh" if forecast is not None else "N/A"
+                x=f"{1E-3*forecast:.2f} kWh"
             )
         )
 

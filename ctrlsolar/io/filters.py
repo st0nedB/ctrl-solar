@@ -1,6 +1,5 @@
-from ctrlsolar.io.io import Sensor
+from ctrlsolar.abstracts.io import Sensor
 from ctrlsolar.functions import exponential_smoothing
-from collections import deque
 from typing import Callable
 import logging
 

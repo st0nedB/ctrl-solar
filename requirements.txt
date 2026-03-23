@@ -3,4 +3,4 @@ rich
 requests
 pandas
 pvlib
-pyyaml
+hydra-core

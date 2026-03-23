@@ -1,62 +1,77 @@
+# @package _global_
+
 mqtt:
-  host: localhost
+  _target_: ctrlsolar.io.Mqtt
+  host: homeassistant.local
   port: 1883
   username:
   password:
 
-site:
+forecast:
+  _target_: ctrlsolar.panels.OpenMeteoForecast
   latitude: 42.46903090913205
   longitude: -71.35063628495487
   timezone: America/New_York
 
-batteries:
-  - type: noah2000
-    serial: BATTERY1
-    panels:
-      - tilt: 45
-        azimuth: 180
-        area: 1.9981
-        efficiency: 0.22
-      - tilt: 45
-        azimuth: 180
-        area: 1.9981
-        efficiency: 0.22
-      - tilt: 45
-        azimuth: 180
-        area: 1.9981
-        efficiency: 0.22
-      - tilt: 45
-        azimuth: 180
-        area: 1.9981
-        efficiency: 0.22
-    stack_count: 2
-    use_smoothing: true
+panels:
+  - _target_: ctrlsolar.panels.GenericPanel
+    tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22
+  - _target_: ctrlsolar.panels.GenericPanel
+    tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22
+  - _target_: ctrlsolar.panels.GenericPanel
+    tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22
+  - _target_: ctrlsolar.panels.GenericPanel
+    tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22        
 
 powermeter:
-  type: mqtt_sensor
-  topic: tele/tasmota_xxxxxx/SENSOR
-  filter:
-    path:
-      - ENERGY
-      - Power
-    dtype: float
-    scale: 1.0
-  smoothing:
-    kind: exponential
-    source_interval: 10
+  sensor:
+    _target_: ctrlsolar.io.MqttSensor
+    _partial_: true
+    topic: tele/tasmota_799C3C/SENSOR
+    filter:
+      _target_: ctrlsolar.functions.filter_dict_with_keys
+      _partial_: true
+      dkeys:
+        - ENERGY
+        - Power
+      dtype: float
+      scale: 1.0
 
 inverter:
-  transport: deye_mqtt
-  model: DeyeSunM160G4
-  topic_prefix: deye
+  _target_: ctrlsolar.inverter.DeyeSunM160G4.from_deye2mqtt
+  _partial_: true
+  topic: deye
+
+batteries:
+  - _target_: ctrlsolar.battery.Noah2000.initialize_from_grobro
+    _partial_: true
+    serial: 0PVPH6ZR23QT00D9
+    n_batteries_stacked: 2
+    use_smoothing: false  
 
 controllers:
-  - type: reduce_consumption
+  - _target_: ctrlsolar.controller.ReduceConsumption
     max_power: 600
     min_power: 80
-    control_threshold_W: 50
-    offset: -10.0
-  - type: production_forecast
+    control_threshold_W: 100
+    offset: -80.0
+  - _target_: ctrlsolar.controller.ProductionForecast
+    panels: ${panels}
+    forecast: ${forecast}
+    energy_today: 
+      _target_: ctrlsolar.io.MqttSensor
 
 loop:
   update_interval: 60

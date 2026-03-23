@@ -1,6 +1,4 @@
-from ctrlsolar.inverter import Inverter
-from ctrlsolar.io.io import Sensor
-from ctrlsolar.controller.controller import Controller
+from ctrlsolar.abstracts import Sensor, Inverter, Controller
 from ctrlsolar.functions import check_properties
 import logging
 
@@ -14,24 +12,22 @@ class ReduceConsumption(Controller):
         self,
         inverter: Inverter,
         meter: Sensor,
-        available: Sensor,
         control_threshold_W: float = 50.0,
-        max_power: float = 800.0,
-        min_power: float = 80.0,
-        offset: float = -10.0,
+        max_power_W: float = 800.0,
+        min_power_W: float = 80.0,
+        offset_W: float = -10.0,
     ):
         self.inverter = inverter
         self.meter = meter
-        self.available = available
         self.control_threshold = control_threshold_W
-        self.max_power = max_power
-        self.min_power = min_power
-        self.offset = offset
+        self.max_power_W = max_power_W
+        self.min_power_W = min_power_W
+        self.offset_W = offset_W
         self.active = True
 
     def _check_empty_sensors_readings(self) -> bool:
-        empty_sensors_readings = []
-        for entity in [self.inverter, self.meter, self.available]:
+        empty_sensors_readings: list[bool] = []
+        for entity in (self.inverter, self.meter):
             check = check_properties(entity)
             empty = False
             for key, value in check.items():
@@ -50,7 +46,6 @@ class ReduceConsumption(Controller):
         skip_update = True
 
         consumption = self.meter.get()
-        available = self.available.get()
         production = self.inverter.production
         limit = self.inverter.production_limit
 
@@ -60,8 +55,6 @@ class ReduceConsumption(Controller):
             )
         else:
             skip_update = False
-
-
 
         logger.info(
             "Consumption\t\t{x}".format(
@@ -78,38 +71,32 @@ class ReduceConsumption(Controller):
                 x=f"{limit:.1f} W" if limit is not None else "N/A"
             )
         )
-        logger.info(
-            "Power available?\t{x}".format(
-                x=f"{available}" if available is not None else "N/A"
-            )
-        )
+
+        # TODO: Read from inverter if power can be provided (e.g., from batteries).
+
+        # Better
+        # If batteries attached: Check if not empty -> Power available
+        # If no batteries attached: Check forecast. Not ended -> Power available
 
         if not skip_update:
             # Calculate power imbalance
             # Positive consumption means we're importing from grid (need more production)
             # Negative consumption means we're exporting to grid (need less production)
             logger.info(f"Consumption \t\t{consumption:.1f} W {'(importing)' if consumption > 0 else '(exporting)' if consumption < 0 else '(balanced)'}")
-            
-            if not available:
-                logger.info("No production capacity available. Setting P_out=200 W as a safety.")
-                new_limit = 200 
-                # Apply the new limit
-                self.inverter.production_limit = new_limit
-                logger.info(f"Production limit updated to {new_limit:.1f} W")
                 
             # Check if adjustment is needed
-            elif abs(consumption) > self.control_threshold:
+            if abs(consumption) > self.control_threshold:
                 logger.info(f"Consumption of {consumption:.1f} W exceeds control threshold of {self.control_threshold:.1f} W")
 
-                new_limit = limit + consumption + self.offset  # type: ignore
+                new_limit = limit + consumption + self.offset_W  # type: ignore
                 
                 # Apply maximum power constraint
-                if new_limit > self.max_power:
-                    logger.info(f"Calculated limit {new_limit:.1f} W exceeds {self.max_power:.1f} W, capping to max.")
-                    new_limit = self.max_power
-                elif new_limit < self.min_power:
-                    logger.info(f"Calculated limit {new_limit:.1f} W is below {self.min_power:.1f} W, capping to min.")
-                    new_limit = self.min_power
+                if new_limit > self.max_power_W:
+                    logger.info(f"Calculated limit {new_limit:.1f} W exceeds {self.max_power_W:.1f} W, capping to max.")
+                    new_limit = self.max_power_W
+                elif new_limit < self.min_power_W:
+                    logger.info(f"Calculated limit {new_limit:.1f} W is below {self.min_power_W:.1f} W, capping to min.")
+                    new_limit = self.min_power_W
 
                 logger.info(f"New production limit: {new_limit:.1f} W (change: {new_limit - limit:.1f} W)")  # type: ignore
 

@@ -37,12 +37,6 @@ Optional overrides:
 
 ## What to update in `config.yaml`
 
-Typical fields to adapt:
-
-- `batteries[*].serial`
-- `batteries[*].panels`
-- `powermeter.topic`
-- `inverter.topic_prefix`
-- controller limits under `controllers`
-
+Check the `defaults.yaml` file for the most useful available options. 
+The total config is composed with `hydra`.
 Keep secrets in `.env`, not in `config.yaml`.

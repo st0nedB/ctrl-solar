@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from ctrlsolar.panels.panels import Panel
 import logging
 
 logger = logging.getLogger(__name__)

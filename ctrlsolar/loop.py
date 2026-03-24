@@ -7,22 +7,23 @@ logger = logging.getLogger(__name__)
 class Loop:
     def __init__(
         self,
-        controller: list[Controller] | Controller,
+        controllers: list[Controller] | Controller,
         update_interval: int = 60,
     ):
-        if isinstance(controller, Controller):
-            controller = [controller]
+        if isinstance(controllers, Controller):
+            controllers = [controllers]
 
-        self.controller = controller
+        self.controllers = controllers
         self.update_interval = update_interval
 
     def run(self):
         try:
             while True:
-                for cc in self.controller:
+                for cc in self.controllers:
                     print()
-                    logger.info(f"Update started for {cc.name}.")
-                    logger.info(f"-----------------------------")
+                    info = f"Update started for {cc.name}."
+                    logger.info(info)
+                    logger.info(len(info) * "-")
                     cc.update()
 
                 time.sleep(self.update_interval)

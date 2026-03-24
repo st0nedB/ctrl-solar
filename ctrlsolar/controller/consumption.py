@@ -27,7 +27,9 @@ class ReduceConsumption(Controller):
 
     def _check_empty_sensors_readings(self) -> bool:
         empty_sensors_readings: list[bool] = []
-        for entity in (self.inverter, self.meter):
+        entities = (self.inverter, self.meter)
+
+        for entity in entities:
             check = check_properties(entity)
             empty = False
             for key, value in check.items():
@@ -72,17 +74,11 @@ class ReduceConsumption(Controller):
             )
         )
 
-        # TODO: Read from inverter if power can be provided (e.g., from batteries).
-
-        # Better
-        # If batteries attached: Check if not empty -> Power available
-        # If no batteries attached: Check forecast. Not ended -> Power available
-
         if not skip_update:
             # Calculate power imbalance
             # Positive consumption means we're importing from grid (need more production)
             # Negative consumption means we're exporting to grid (need less production)
-            logger.info(f"Consumption \t\t{consumption:.1f} W {'(importing)' if consumption > 0 else '(exporting)' if consumption < 0 else '(balanced)'}")
+            logger.info(f"Consumption \t{consumption:.1f} W {'(importing)' if consumption > 0 else '(exporting)' if consumption < 0 else '(balanced)'}")
                 
             # Check if adjustment is needed
             if abs(consumption) > self.control_threshold:

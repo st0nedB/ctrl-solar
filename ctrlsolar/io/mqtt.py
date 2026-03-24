@@ -4,8 +4,6 @@ import logging
 from ctrlsolar.abstracts.io import Sensor, Consumer
 
 logger = logging.getLogger(__name__)
-
-
 class Mqtt:
     def __init__(
         self,
@@ -38,7 +36,7 @@ class Mqtt:
 
         self.subscriptions[topic].append(callback)
 
-    def _on_message(self, client, userdata, message, reason_code, properties):
+    def _on_message(self, client, userdata, message):
         topic = message.topic
         payload = message.payload.decode()
         for cb in self.subscriptions.get(topic, []):
@@ -48,19 +46,23 @@ class Mqtt:
 class MqttSensor(Sensor):
     def __init__(
         self,
-        mqtt: Mqtt,
         topic: str,
-        filter: Callable = lambda x: x,
+        filter: Optional[list[Callable]] = None,
         *args,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.topic = topic
         self.filter = filter
+        mqtt = get_mqtt()
         mqtt.subscribe(topic, self._on_message)
 
     def _on_message(self, payload: str):
-        self._buffer.append(self.filter(payload))
+        if self.filter is not None:
+            for cc in self.filter:
+                payload = cc(payload)
+
+        self._buffer.append(payload)
         return
 
     def get(self):
@@ -72,10 +74,29 @@ class MqttSensor(Sensor):
 
 
 class MqttConsumer(Consumer):
-    def __init__(self, mqtt: Mqtt, topic: str):
-        self.mqtt = mqtt
+    def __init__(self, topic: str):
+        self.mqtt = get_mqtt()
         self.topic = topic
 
     def set(self, value: str | int | float):
         self.mqtt.client.publish(self.topic, value)
         return
+
+
+# Mqtt singleton to be used
+
+_mqtt: Mqtt | None = None
+
+def set_mqtt(client: Mqtt) -> None:
+    global _mqtt
+    if _mqtt is not None:
+        raise RuntimeError("MQTT singleton already initialized!")
+    
+    _mqtt = client
+    return 
+    
+def get_mqtt() -> Mqtt:
+    if _mqtt is None:
+        raise RuntimeError("MQTT singleton not initialized yet!")
+    
+    return _mqtt

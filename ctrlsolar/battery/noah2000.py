@@ -1,6 +1,6 @@
 from ctrlsolar.abstracts.battery import DCCoupledBattery
 from ctrlsolar.abstracts.io import Sensor
-from ctrlsolar.io.mqtt import Mqtt, MqttSensor
+from ctrlsolar.io.mqtt import MqttSensor
 from ctrlsolar.io.filters import AverageSmoothing
 from typing import Optional, Any
 import json
@@ -58,7 +58,6 @@ class Noah2000(DCCoupledBattery):
     @classmethod
     def initialize_from_grobro(
         cls,
-        mqtt: Mqtt,
         serial: str,
         n_batteries_stacked: int = 1,
         use_smoothing: bool = False,
@@ -69,45 +68,39 @@ class Noah2000(DCCoupledBattery):
                 raise ValueError(
                     f"Found `use_smoothing=True. Smoothing requires values for `last_k` but found None."
                 )
-
         state_of_charge_sensor = MqttSensor(
-            mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (lambda x: float(x) / 100 if x is not None else 0)(  # type: ignore
+            filter=[lambda y: (lambda x: float(x) / 100 if x is not None else 0)(  # type: ignore
                 json.loads(y)["tot_bat_soc_pct"]  # type: ignore
-            ),
+            )],
         )
         mode_sensor = MqttSensor(
-            mqtt=mqtt,
             topic=f"homeassistant/number/grobro/{serial.upper()}/slot1_mode/get",
-            filter=lambda x: int(x) if x is not None else None,  # type: ignore
+            filter=[lambda x: int(x) if x is not None else None],  # type: ignore
         )
         output_power_sensor = MqttSensor(
-            mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
+            filter=[lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
                 json.loads(y)["out_power"]  # type: ignore
-            ),
+            )],
         )
         if use_smoothing:
             output_power_sensor = AverageSmoothing(
                 sensor=output_power_sensor, last_k=last_k  # type: ignore
             )
         solar_sensor = MqttSensor(
-            mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
+            filter=[lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
                 json.loads(y)["pv_tot_power"]  # type: ignore
-            ),
+            )],
         )
         if use_smoothing:
             solar_sensor = AverageSmoothing(
                 sensor=solar_sensor, last_k=last_k  # type: ignore
             )
         discharge_power_sensor = MqttSensor(
-            mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (  # type: ignore
+            filter=[lambda y: (  # type: ignore
                 lambda x: (
                     0
                     if x is not None and float(x) > 0
@@ -115,12 +108,11 @@ class Noah2000(DCCoupledBattery):
                 )
             )(
                 json.loads(y)["charging_discharging"]  # type: ignore
-            ),  # type: ignore
+            )],  # type: ignore
         )
         charge_power_sensor = MqttSensor(
-            mqtt=mqtt,
             topic=f"homeassistant/grobro/{serial.upper()}/state",
-            filter=lambda y: (  # type: ignore
+            filter=[lambda y: (  # type: ignore
                 lambda x: (
                     0
                     if x is not None and float(x) < 0
@@ -128,7 +120,7 @@ class Noah2000(DCCoupledBattery):
                 )
             )(
                 json.loads(y)["charging_discharging"]  # type: ignore
-            ),  # type: ignore
+            )],  # type: ignore
         )
         if use_smoothing:
             charge_power_sensor = AverageSmoothing(

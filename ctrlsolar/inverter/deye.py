@@ -1,6 +1,6 @@
 from ctrlsolar.abstracts.inverter import Inverter
 from ctrlsolar.abstracts.io import Sensor, Consumer
-from ctrlsolar.io.mqtt import Mqtt, MqttSensor, MqttConsumer
+from ctrlsolar.io.mqtt import MqttSensor, MqttConsumer
 
 __all__ = ["DeyeSunM160G4"]
 
@@ -50,25 +50,22 @@ class DeyeSun(Inverter):
     
     @classmethod
     def initialize_from_deye2mqtt(
-        cls, mqtt: Mqtt, topic: str,
+        cls, topic: str,
     ) -> Inverter:
         power_sensor=MqttSensor(
-            mqtt=mqtt,
             topic=f"{topic}/ac/active_power",
-            filter=lambda x: float(x) if x is not None else None,   # type: ignore
+            filter=[lambda x: float(x) if x is not None else None,],   # type: ignore
         )
         production_limit_sensor=MqttSensor(
-            mqtt=mqtt,
             topic=f"{topic}/settings/active_power_regulation",
-            filter=lambda x: float(x) if x is not None else None,   # type: ignore
+            filter=[lambda x: float(x) if x is not None else None,],   # type: ignore
         )
         energy_today_sensor=MqttSensor(
-            mqtt=mqtt, 
             topic=f"{topic}/day_energy",
-            filter=lambda x: float(x) if x is not None else None,   # type: ignore
+            filter=[lambda x: float(x) if x is not None else None,],   # type: ignore
         )
         production_limit_consumer=MqttConsumer(
-            mqtt=mqtt, topic=f"{topic}/settings/active_power_regulation/command"
+            topic=f"{topic}/settings/active_power_regulation/command"
         )
         return cls(
             power_sensor=power_sensor,

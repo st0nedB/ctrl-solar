@@ -2,8 +2,8 @@
 
 mqtt:
   _target_: ctrlsolar.io.Mqtt
-  host: <IP/URL>
-  port: <PORT>
+  host: homeassistant.local
+  port: 1883
 
 loop:
   _target_: ctrlsolar.loop.Loop

@@ -24,19 +24,16 @@ docker compose logs -f --tail=100
 
 Required in most setups:
 
-- `CTRLSOLAR__MQTT__HOST`
-- `CTRLSOLAR__MQTT__PORT`
-- `CTRLSOLAR__MQTT__USERNAME`
-- `CTRLSOLAR__MQTT__PASSWORD`
-
-Optional overrides:
-
-- `CTRLSOLAR__SITE__LATITUDE`
-- `CTRLSOLAR__SITE__LONGITUDE`
-- `CTRLSOLAR__SITE__TIMEZONE`
+- `MQTT_USERNAME`
+- `MQTT_PASSWORD`
 
 ## What to update in `config.yaml`
 
-Check the `defaults.yaml` file for the most useful available options. 
-The total config is composed with `hydra`.
+Set broker and runtime-specific values here, especially:
+
+- `mqtt.host`
+- `mqtt.port`
+- `loop.controllers[0].inverter.topic`
+- `loop.controllers[0].meter.topic`
+
 Keep secrets in `.env`, not in `config.yaml`.

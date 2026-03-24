@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-ctrlsolar = "ctrlsolar.cli:main"
+ctrlsolar = "ctrlsolar.app:run"
 
 [tool.setuptools.package-data]
 ctrlsolar = ["defaults.yaml"]

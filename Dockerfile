@@ -6,4 +6,4 @@ COPY ctrlsolar /app/ctrlsolar
 
 RUN python -m pip install /app
 
-CMD ["ctrlsolar", "run", "--config", "/app/config.yaml"]
+CMD ["python", "-m", "ctrlsolar.app", "--config-path", "/app", "--config-name", "config"]

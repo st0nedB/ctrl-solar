@@ -23,12 +23,12 @@ The primary deployment target is a published Docker image. You should not need t
 
 ## 🚀 Quick Start
 
-Use the example files in [`examples/`](examples/):
+Use the example files in [`example/`](example/):
 
-- [`examples/README.md`](examples/README.md)
-- [`examples/docker-compose.yaml`](examples/docker-compose.yaml)
-- [`examples/.env`](examples/.env)
-- [`examples/config.yaml`](examples/config.yaml)
+- [`example/README.md`](example/README.md)
+- [`example/docker-compose.yaml`](example/docker-compose.yaml)
+- [`example/.env`](example/.env)
+- [`example/config.yaml`](example/config.yaml)
 
 Copy them into your deployment directory, update `.env` and `config.yaml`, then run:
 
@@ -44,66 +44,57 @@ docker compose logs -f --tail=100
 ---
 ## ⚙️ Configuration
 
-Use [`examples/config.yaml`](examples/config.yaml) as the canonical sample configuration.
+Use [`example/config.yaml`](example/config.yaml) as the canonical sample configuration.
 
-For deployment-specific overrides, environment variables can override nested config values using the `CTRLSOLAR__...` prefix:
+Use `.env` for MQTT credentials:
 
 ```dotenv
-CTRLSOLAR__MQTT__HOST=mqtt.example.com
-CTRLSOLAR__MQTT__PORT=1883
-CTRLSOLAR__MQTT__USERNAME=your_username
-CTRLSOLAR__MQTT__PASSWORD=your_password
-CTRLSOLAR__SITE__LATITUDE=42.46903090913205
-CTRLSOLAR__SITE__LONGITUDE=-71.35063628495487
-CTRLSOLAR__SITE__TIMEZONE=America/New_York
+MQTT_USERNAME=your_username
+MQTT_PASSWORD=your_password
 ```
 
 Typical split:
 - keep non-secret runtime settings in `config.yaml`
-- pass secrets and installation-specific values through environment variables
+- pass secrets through environment variables
 - mount `config.yaml` into the container at `/app/config.yaml`
 
 ### Minimum Required Values
 
 Review at least these fields for a working installation:
 
-- `mqtt.host`, `mqtt.port`, `mqtt.username`, `mqtt.password`
-- `site.latitude`, `site.longitude`, `site.timezone`
-- `batteries[*].serial`
-- `batteries[*].panels`
-- `powermeter.topic`
-- `inverter.topic_prefix`
+- `.env`: `MQTT_USERNAME`, `MQTT_PASSWORD`
+- `config.yaml`: `mqtt.host`, `mqtt.port`
+- `config.yaml`: `loop.controllers[0].inverter.topic`
+- `config.yaml`: `loop.controllers[0].meter.topic`
 
 ### How To Adapt It To Your System
 
 Typical installation-specific changes:
 
-- change `powermeter.topic` to your actual meter topic
-- change `powermeter.filter.path` if the numeric power value lives elsewhere in the JSON payload
-- change `inverter.topic_prefix` if your Deye topics use another prefix
-- change `batteries[*].serial` to your actual battery serials
-- change `batteries[*].panels` to match your real panel geometry
-- change `site.*` or override it through environment variables
+- change `mqtt.host` and `mqtt.port` to your broker
+- set `.env` `MQTT_USERNAME` and `MQTT_PASSWORD`
+- change `loop.controllers[0].meter.topic` to your powermeter topic
+- adjust the meter filter (`loop.controllers[0].meter.filter`) to match your JSON payload shape
+- change `loop.controllers[0].inverter.topic` if your Deye topics use another prefix
 
 ### MQTT Topic Expectations
 
 The built-in integrations assume:
 
-- the powermeter topic publishes JSON and `powermeter.filter.path` resolves to a numeric value
-- the Deye inverter uses the configured `inverter.topic_prefix` for production telemetry and limit commands
-- each Noah2000 battery serial maps to the expected MQTT topics for state, limits, production, and mode switching
+- the powermeter topic publishes JSON and the configured meter filter resolves to a numeric value
+- the Deye inverter uses `loop.controllers[0].inverter.topic` for production telemetry and limit commands
 
 If your topics or payloads differ from that shape, update the configuration where possible. If the built-in integration does not match your payload structure, code changes will be required.
 
 ---
 ## 🐳 Docker Compose
 
-For a compose example, use the files under [`examples/`](examples/):
+For a compose example, use the files under [`example/`](example/):
 
-- [`examples/README.md`](examples/README.md)
-- [`examples/docker-compose.yaml`](examples/docker-compose.yaml)
-- [`examples/.env`](examples/.env)
-- [`examples/config.yaml`](examples/config.yaml)
+- [`example/README.md`](example/README.md)
+- [`example/docker-compose.yaml`](example/docker-compose.yaml)
+- [`example/.env`](example/.env)
+- [`example/config.yaml`](example/config.yaml)
 
 Those files are meant to be copied into a deployment directory and edited.
 
@@ -132,18 +123,17 @@ If these checks pass, the setup is usually wired correctly.
 ### Values stay `N/A`
 
 - check the configured MQTT topics
-- check that `powermeter.filter.path` matches the actual JSON payload
-- check that `batteries[*].serial` matches the serials exposed on MQTT
+- check that `loop.controllers[0].meter.filter` matches the actual JSON payload
 
 ### The inverter limit never changes
 
-- check `inverter.topic_prefix`
+- check `loop.controllers[0].inverter.topic`
 - confirm the inverter control topics exist on the broker
 - confirm the meter signal is valid and not permanently missing
 
 ### Forecast output is wrong or missing
 
-- check `site.latitude`, `site.longitude`, and `site.timezone`
+- check `loop.controllers[1].forecast.latitude`, `longitude`, and `timezone`
 - confirm the runtime can reach the weather API
 
 ### Compose starts, but it behaves like the wrong installation
@@ -158,18 +148,18 @@ If these checks pass, the setup is usually wired correctly.
 .
 ├── Dockerfile
 ├── docker-compose.yaml  # Published-image example deployment
-├── examples/
+├── example/
 │   ├── README.md
 │   ├── docker-compose.yaml
 │   ├── .env
 │   └── config.yaml
 └── ctrlsolar/
-    ├── assembly   # Runtime assembly from configuration
-    ├── config     # Config defaults, models, and loader
+    ├── abstracts  # Core interfaces
     ├── io         # Sensor, Consumer abstractions and MQTT examples
     ├── inverter   # Inverter implementations
     ├── battery    # Battery implementations
     ├── controller # Controller implementations
+    ├── panels     # Forecast and panel models
     └── loop.py    # Loop scheduler for controller(s)
 ```
 
@@ -183,7 +173,7 @@ python -m venv .venv
 . .venv/bin/activate
 pip install -e .
 python -m unittest discover -s tests -v
-python -m ctrlsolar run --config ./examples/config.yaml
+python -m ctrlsolar.app --config-path ./example --config-name config
 ```
 
 The published container image is built by GitHub Actions and pushed to GHCR, for example:

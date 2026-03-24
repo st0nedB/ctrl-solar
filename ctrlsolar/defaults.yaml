@@ -8,8 +8,8 @@ mqtt:
   _target_: ctrlsolar.io.Mqtt
   host: ???
   port: ???
-  username: ${oc.env:MQTT_USERNAME}
-  password: ${oc.env:MQTT_PASSWORD}
+  username: ???
+  password: ???
 
 loop:
   _target_: ctrlsolar.loop.Loop

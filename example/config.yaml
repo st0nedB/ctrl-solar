@@ -2,8 +2,10 @@
 
 mqtt:
   _target_: ctrlsolar.io.Mqtt
-  host: homeassistant.local
+  host: mqttbroker.local
   port: 1883
+  username: ${oc.env:MQTT_USERNAME}
+  password: ${oc.env:MQTT_PASSWORD}  
 
 loop:
   _target_: ctrlsolar.loop.Loop

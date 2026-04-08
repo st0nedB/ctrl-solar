@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from ctrlsolar.abstracts.battery import DCCoupledBattery
+from typing import Optional
 import logging
 
 __all__ = ["Inverter"]
@@ -6,6 +8,8 @@ __all__ = ["Inverter"]
 logger = logging.getLogger(__name__)
 
 class Inverter(ABC):
+    battery: Optional[DCCoupledBattery] = None
+
     @property
     @abstractmethod
     def production(self) -> float | None:

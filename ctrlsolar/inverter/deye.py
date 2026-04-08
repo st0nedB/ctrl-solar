@@ -1,6 +1,6 @@
-from ctrlsolar.abstracts.inverter import Inverter
-from ctrlsolar.abstracts.io import Sensor, Consumer
-from ctrlsolar.io.mqtt import MqttSensor, MqttConsumer
+from ctrlsolar.abstracts import Inverter, DCCoupledBattery, Sensor, Consumer
+from ctrlsolar.io import MqttSensor, MqttConsumer
+from typing import Optional
 
 __all__ = ["DeyeSunM160G4"]
 
@@ -13,11 +13,13 @@ class DeyeSun(Inverter):
         production_limit_sensor: Sensor,
         energy_today_sensor: Sensor,
         production_limit_consumer: Consumer,
+        battery: Optional[DCCoupledBattery] = None,
     ):
         self.power_sensor = power_sensor
         self.production_limit_sensor = production_limit_sensor
         self.energy_today_sensor = energy_today_sensor
         self.production_limit_consumer = production_limit_consumer
+        self.battery = battery
         return
 
     @property

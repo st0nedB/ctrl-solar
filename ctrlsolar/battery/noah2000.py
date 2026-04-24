@@ -54,9 +54,23 @@ class Noah2000(DCCoupledBattery):
     @property
     def solar_power(self) -> float | None:
         return self.solar_sensor.get()
+    
+    @property
+    def energy_charged(self) -> float | None:
+        if self.state_of_charge is None: 
+            return None 
+        
+        return self.state_of_charge * self.capacity
+    
+    @property
+    def energy_missing(self) -> float | None:
+        if self.energy_charged is None:
+            return None 
+        
+        return self.capacity - self.energy_charged
 
     @classmethod
-    def initialize_from_grobro(
+    def from_grobro(
         cls,
         serial: str,
         n_batteries_stacked: int = 1,

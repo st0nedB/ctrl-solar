@@ -1,5 +1,5 @@
 from pvlib.irradiance import get_total_irradiance   # type:ignore
-from ctrlsolar.abstracts import Panel, Forecast
+from ctrlsolar.abstracts import Panel, Weather
 import pandas as pd
 import logging
 from typing import Optional
@@ -29,17 +29,17 @@ class GenericPanel(Panel):
         self.efficiency = efficiency
         self.calibration = calibration if calibration is not None else 24 * [1]
 
-    def predicted_production_by_hour(self, forecast: pd.DataFrame) -> pd.DataFrame:
-        poa = get_total_irradiance(
+    def predicted_production_by_hour(self, weather: pd.DataFrame) -> pd.DataFrame:
+        poa = get_total_irradiance( # type: ignore
             surface_tilt=self.tilt,
             surface_azimuth=self.azimuth,
-            solar_zenith=forecast["apparent_zenith"],
-            solar_azimuth=forecast["azimuth"],
-            dni=forecast["DNI"],
-            ghi=forecast["GHI"],
-            dhi=forecast["DHI"],
+            solar_zenith=weather["apparent_zenith"],
+            solar_azimuth=weather["azimuth"],
+            dni=weather["DNI"],
+            ghi=weather["GHI"],
+            dhi=weather["DHI"],
         )
-        p_dc = poa["poa_global"] * self.area * self.efficiency  # in W
-        p_dc = self.calibration * p_dc
+        p_dc = poa["poa_global"] * self.area * self.efficiency  # type: ignore # in W
+        p_dc = self.calibration * p_dc # type: ignore
 
-        return p_dc.to_frame()
+        return p_dc.to_frame() # type: ignore

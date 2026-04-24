@@ -3,5 +3,5 @@ import pandas as pd
 
 class Panel(ABC):
     @abstractmethod
-    def predicted_production_by_hour(self, forecast: pd.DataFrame) -> pd.DataFrame:
+    def predicted_production_by_hour(self, weather: pd.DataFrame) -> pd.DataFrame:
         pass

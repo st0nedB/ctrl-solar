@@ -37,3 +37,13 @@ class DCCoupledBattery(ABC):
     @abstractmethod
     def solar_power(self) -> float | None:
         pass
+
+    @property
+    @abstractmethod
+    def energy_charged(self) -> float | None:
+        pass
+
+    @property
+    @abstractmethod
+    def energy_missing(self) -> float | None:
+        pass

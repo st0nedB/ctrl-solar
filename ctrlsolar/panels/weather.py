@@ -1,10 +1,10 @@
 import requests
 import pandas as pd
-from pvlib.location import Location
+from pvlib.location import Location # type:ignore
 from datetime import datetime, timedelta
 import logging
 from typing import TypedDict, cast
-from ctrlsolar.abstracts.forecast import Forecast
+from ctrlsolar.panels.abstract import Weather
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class _OpenMeteoResponse(TypedDict):
     hourly: _OpenMeteoHourly
 
 
-class OpenMeteoForecast(Forecast):
+class OpenMeteoWeather(Weather):
     def __init__(
         self,
         latitude: float,
@@ -37,13 +37,12 @@ class OpenMeteoForecast(Forecast):
         self._forecast: pd.DataFrame | None = None
         self._forecast_age: datetime | None = None
 
-    def _get_forecast(self):
-        today = datetime.now().today().strftime("%Y-%m-%d")
+    def _get_forecast(self, date: str):
         weather_url = (
             f"https://api.open-meteo.com/v1/forecast?"
             f"latitude={self.latitude}&longitude={self.longitude}&"
             "hourly=diffuse_radiation,direct_normal_irradiance,global_tilted_irradiance,shortwave_radiation&"
-            f"timezone={self.timezone}&start_date={today}&end_date={today}"
+            f"timezone={self.timezone}&start_date={date}&end_date={date}"
         )
 
         response: requests.Response = requests.get(weather_url)
@@ -72,14 +71,14 @@ class OpenMeteoForecast(Forecast):
         return df
 
     def get(self) -> pd.DataFrame:
+        today = datetime.now().today().strftime("%Y-%m-%d")
+
         if self._forecast is None or self._forecast_age is None:
-            self._forecast = self._get_forecast()
+            self._forecast = self._get_forecast(date=today)
             self._forecast_age = datetime.now()
 
         if datetime.now() - self._forecast_age > self.update_every:
-            self._forecast = self._get_forecast()
+            self._forecast = self._get_forecast(date=today)
             self._forecast_age = datetime.now()
-
-        assert self._forecast is not None
 
         return self._forecast

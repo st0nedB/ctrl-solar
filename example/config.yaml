@@ -1,68 +1,28 @@
-# @package _global_
+# MQTT, username and password are in .env!
+host: homeassistant.local
+port: 1883
 
-mqtt:
-  _target_: ctrlsolar.io.Mqtt
-  host: mqttbroker.local
-  port: 1883
-  username: ${oc.env:MQTT_USERNAME}
-  password: ${oc.env:MQTT_PASSWORD}  
+latitude: 42.46903090913205
+longitude: -71.35063628495487
+timezone: America/New_York
 
-loop:
-  _target_: ctrlsolar.loop.Loop
-  update_interval: 60
-  controllers: 
-    - _target_: ctrlsolar.controller.ReduceConsumption
-      max_power_W: 600
-      min_power_W: 80
-      control_threshold_W: 100
-      offset_W: -80.0    
-      inverter:
-        _target_: ctrlsolar.inverter.DeyeSunM160G4.initialize_from_deye2mqtt
-        topic: deye
-      meter: 
-        _target_: ctrlsolar.io.MqttSensor
-        topic: tele/tasmota_799C3C/SENSOR
-        filter:
-          - _target_: json.loads
-            _partial_: true 
-          - _target_: ctrlsolar.functions.filter_dict_with_keys
-            _partial_: true
-            dkeys:
-              - ENERGY
-              - Power
-            dtype: float
-            scale: 1.0
+battery_sn: 0PVPH6ZR23QT00D9
+update_interval_s: 3600
 
-    - _target_: ctrlsolar.controller.ProductionForecast
-      forecast:
-        _target_: ctrlsolar.panels.forecast.OpenMeteoForecast
-        latitude: 42.46903090913205
-        longitude: -71.35063628495487
-        timezone: America/New_York
-      panels:
-        - _target_: ctrlsolar.panels.GenericPanel
-          tilt: 45
-          azimuth: 180
-          area: 1.9981
-          efficiency: 0.22       
-        - _target_: ctrlsolar.panels.GenericPanel
-          tilt: 45
-          azimuth: 180
-          area: 1.9981
-          efficiency: 0.22       
-        - _target_: ctrlsolar.panels.GenericPanel
-          tilt: 45
-          azimuth: 180
-          area: 1.9981
-          efficiency: 0.22       
-        - _target_: ctrlsolar.panels.GenericPanel
-          tilt: 45
-          azimuth: 180
-          area: 1.9981
-          efficiency: 0.22       
-      energy_today: 
-        _target_: ctrlsolar.io.MqttSensor
-        topic: deye/day_energy
-        filter:
-          - _target_: builtins.float
-            _partial_: true
+panels:
+  - tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22       
+  - tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22
+  - tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22
+  - tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22        

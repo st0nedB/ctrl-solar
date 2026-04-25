@@ -2,5 +2,5 @@ paho-mqtt
 rich
 requests
 pandas
+numpy
 pvlib
-hydra-core

@@ -1,7 +1,5 @@
-from ctrlsolar.controller.consumption import ReduceConsumption
-from ctrlsolar.controller.forecast import ProductionForecast
+from ctrlsolar.controller.energy import EnergyController
 
 __all__ = [
-    "ReduceConsumption",
-    "ProductionForecast",
+    "EnergyController",
 ]

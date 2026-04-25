@@ -1,7 +1,7 @@
 from typing import Optional, Callable
 import paho.mqtt.client as mqtt
 import logging
-from ctrlsolar.abstracts.io import Sensor, Consumer
+from ctrlsolar.mqtt.abstract import Sensor, Consumer
 
 logger = logging.getLogger(__name__)
 class Mqtt:

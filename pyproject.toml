@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctrlsolar"
-version = "0.2.0"
+version = "0.5.0"
 description = "Monitoring and control framework for solar installations."
 requires-python = ">=3.11"
 dependencies = [

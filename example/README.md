@@ -11,8 +11,8 @@ Files in this directory:
 ## How to use it
 
 1. Copy these files into your deployment directory.
-2. Edit `.env` and update the MQTT credentials and any site-specific override values.
-3. Edit `config.yaml` for the non-secret runtime settings such as battery serials, inverter topic prefixes, and panel definitions.
+2. Edit `.env` and set MQTT credentials.
+3. Edit `config.yaml` for site settings like host, battery serial, and panels.
 4. Start the service:
 
 ```bash
@@ -31,9 +31,10 @@ Required in most setups:
 
 Set broker and runtime-specific values here, especially:
 
-- `mqtt.host`
-- `mqtt.port`
-- `loop.controllers[0].inverter.topic`
-- `loop.controllers[0].meter.topic`
+- `host`
+- `port`
+- `battery_sn`
+- `update_interval_s`
+- `panels`
 
 Keep secrets in `.env`, not in `config.yaml`.

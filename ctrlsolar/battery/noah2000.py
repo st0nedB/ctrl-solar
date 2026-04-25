@@ -1,6 +1,6 @@
 from ctrlsolar.battery.abstract import DCCoupledBattery
-from ctrlsolar.mqtt.abstract import Sensor
-from ctrlsolar.mqtt.mqtt import MqttSensor
+from ctrlsolar.mqtt.abstract import Sensor, Consumer
+from ctrlsolar.mqtt.mqtt import MqttSensor, MqttConsumer
 from typing import Any
 import json
 import logging
@@ -18,6 +18,7 @@ class Noah2000(DCCoupledBattery):
         state_of_charge_sensor: Sensor,
         mode_sensor: Sensor,
         output_power_sensor: Sensor,
+        output_power_consumer: Consumer,
         charge_power_sensor: Sensor,
         discharge_power_sensor: Sensor,
         solar_sensor: Sensor,
@@ -29,6 +30,7 @@ class Noah2000(DCCoupledBattery):
         self._soc_sensor = state_of_charge_sensor
         self._mode_sensor = mode_sensor
         self._output_power_sensor = output_power_sensor
+        self._output_power_consumer = output_power_consumer
         self._charge_power_sensor = charge_power_sensor
         self._discharge_power_sensor = discharge_power_sensor
         self._solar_sensor = solar_sensor
@@ -60,6 +62,10 @@ class Noah2000(DCCoupledBattery):
     @property
     def output_power(self) -> float | None:
         return self._output_power_sensor.get()
+    
+    @output_power.setter
+    def output_power(self) -> None:
+        pass    
 
     @property
     def solar_power(self) -> float | None:
@@ -100,6 +106,9 @@ class Noah2000(DCCoupledBattery):
                 json.loads(y)["out_power"]  # type: ignore
             )],
         )
+        output_power_consumer = MqttConsumer(
+            topic=f"homeassustant/grobro/{serial.upper()}/default_power/set"
+        )
         solar_sensor = MqttSensor(
             topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=[lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
@@ -139,6 +148,7 @@ class Noah2000(DCCoupledBattery):
             serial=serial,
             state_of_charge_sensor=state_of_charge_sensor,
             output_power_sensor=output_power_sensor,
+            output_power_consumer=output_power_consumer,
             solar_sensor=solar_sensor,
             mode_sensor=mode_sensor,
             discharge_power_sensor=discharge_power_sensor,

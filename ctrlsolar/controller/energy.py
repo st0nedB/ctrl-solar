@@ -1,7 +1,6 @@
 from datetime import datetime
 from ctrlsolar.panels.abstract import Weather, Panel
 from ctrlsolar.battery.abstract import DCCoupledBattery
-from ctrlsolar.mqtt.abstract import Consumer
 from ctrlsolar.controller.abstract import Controller
 import logging
 
@@ -44,10 +43,8 @@ class EnergyController(Controller):
                  weather: Weather,
                  panels: Panel,
                  p_min: float, 
-                 p_max: float, 
-                 power_consumer: Consumer
+                 p_max: float = 800, 
         ):
-        self._power_setter = power_consumer
         self._battery = battery
         self._forecast = EnergyForecast(
             weather=weather,
@@ -109,5 +106,5 @@ class EnergyController(Controller):
             logger.warning(f"Something went terribly wrong. Setting fallback power of 200W.")
             target_W = 200
 
-        self._power_setter.set(target_W)
+        self._battery.output_power = target_W
         return 

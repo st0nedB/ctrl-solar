@@ -1,11 +1,20 @@
-from ctrlsolar.mqtt.mqtt import set_mqtt
+from ctrlsolar.mqtt.mqtt import set_mqtt, Mqtt
 from ctrlsolar.controller import EnergyController
 from ctrlsolar.battery import Noah2000
+from ctrlsolar.panels import OpenMeteoWeather, GenericPanel, PanelGroup
+from ctrlsolar.config import Config
 import time
-from os import PathLike
+import logging
 
-def run(config: PathLike) -> None:
-    mqtt = ...
+logger = logging.getLogger(__name__)
+
+def run(config: Config) -> None:
+    mqtt = Mqtt(
+        host=config.mqtt_host, 
+        port=config.mqtt_port,
+        password=config.mqtt_password,
+        username=config.mqtt_username,
+    )
     mqtt.connect()
     set_mqtt(mqtt)
 
@@ -19,14 +28,31 @@ def run(config: PathLike) -> None:
             raise RuntimeError(f"Connection to MQTT broker could not be established.")
 
     # create 
-    battery = Noah2000.from_grobro(config.grobro)
-    forecast = 
+    panel_list = [
+        GenericPanel(
+            tilt=float(panel["tilt"]),
+            azimuth=float(panel["azimuth"]),
+            area=float(panel["area"]),
+            efficiency=float(panel["efficiency"]),
+            calibration=panel.get("calibration"),
+        ) for panel in config.panels]
+
+    panels = PanelGroup(panel_list)
+    battery = Noah2000.from_grobro(config.grobro_root_topic)
+    weather = OpenMeteoWeather(
+        latitude=config.latitude,
+        longitude=config.longitude,
+        timezone=config.timezone
+    )
 
     # create the controllers
     controllers = [
         EnergyController(
-            battery=,
-
+            battery=battery,
+            weather=weather,
+            panels=panels,
+            p_min=config.power_min,
+            p_max=config.power_max,
         )
     ]
 
@@ -40,7 +66,7 @@ def run(config: PathLike) -> None:
                 logger.info(len(info) * "-")
                 cc.update()
 
-            time.sleep(self.update_interval)
+            time.sleep(config.update_interval_s)
 
     except KeyboardInterrupt:
         pass
@@ -48,4 +74,5 @@ def run(config: PathLike) -> None:
     return
 
 if __name__ == "__main__":
-    run()
+    config = Config.from_yaml("config.yaml")
+    run(config=config)

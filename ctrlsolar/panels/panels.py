@@ -2,7 +2,7 @@ from pvlib.irradiance import get_total_irradiance   # type:ignore
 from ctrlsolar.panels.abstract import Panel, Weather
 import numpy as np
 import logging
-from typing import Optional
+from typing import Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class GenericPanel(Panel):
         return [float(x) for x in p_dc.tolist()]  # type: ignore
     
 class PanelGroup(Panel):
-    def __init__(self, panels: list[Panel,]):
+    def __init__(self, panels: Sequence[Panel,]):
         self._panels = panels
 
     def predicted_production_by_hour(self, weather: Weather) -> list[float]:

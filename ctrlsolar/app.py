@@ -1,13 +1,11 @@
-from __future__ import annotations
-import hydra
-from hydra.utils import instantiate
-from omegaconf import DictConfig
-from ctrlsolar.io.mqtt import set_mqtt
+from ctrlsolar.mqtt.mqtt import set_mqtt
+from ctrlsolar.controller import EnergyController
+from ctrlsolar.battery import Noah2000
 import time
+from os import PathLike
 
-@hydra.main(version_base=None, config_path=".", config_name="defaults")
-def run(config: DictConfig) -> None:
-    mqtt = instantiate(config.mqtt)
+def run(config: PathLike) -> None:
+    mqtt = ...
     mqtt.connect()
     set_mqtt(mqtt)
 
@@ -19,10 +17,33 @@ def run(config: DictConfig) -> None:
 
         if ii == 4:
             raise RuntimeError(f"Connection to MQTT broker could not be established.")
-        
-    
-    loop = instantiate(config.loop)
-    loop.run()
+
+    # create 
+    battery = Noah2000.from_grobro(config.grobro)
+    forecast = 
+
+    # create the controllers
+    controllers = [
+        EnergyController(
+            battery=,
+
+        )
+    ]
+
+    # run in loop
+    try:
+        while True:
+            for cc in controllers:
+                print()
+                info = f"Update started for {cc.name}."
+                logger.info(info)
+                logger.info(len(info) * "-")
+                cc.update()
+
+            time.sleep(self.update_interval)
+
+    except KeyboardInterrupt:
+        pass
 
     return
 

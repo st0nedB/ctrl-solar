@@ -1,6 +1,6 @@
 from pvlib.irradiance import get_total_irradiance   # type:ignore
-from ctrlsolar.abstracts import Panel, Weather
-import pandas as pd
+from ctrlsolar.panels.abstract import Panel, Weather
+import numpy as np
 import logging
 from typing import Optional
 
@@ -29,17 +29,30 @@ class GenericPanel(Panel):
         self.efficiency = efficiency
         self.calibration = calibration if calibration is not None else 24 * [1]
 
-    def predicted_production_by_hour(self, weather: pd.DataFrame) -> pd.DataFrame:
+    def predicted_production_by_hour(self, weather: Weather) -> list[float]:
+        weather_today = weather.get()
         poa = get_total_irradiance( # type: ignore
             surface_tilt=self.tilt,
             surface_azimuth=self.azimuth,
-            solar_zenith=weather["apparent_zenith"],
-            solar_azimuth=weather["azimuth"],
-            dni=weather["DNI"],
-            ghi=weather["GHI"],
-            dhi=weather["DHI"],
+            solar_zenith=weather_today["apparent_zenith"],
+            solar_azimuth=weather_today["azimuth"],
+            dni=weather_today["DNI"],
+            ghi=weather_today["GHI"],
+            dhi=weather_today["DHI"],
         )
         p_dc = poa["poa_global"] * self.area * self.efficiency  # type: ignore # in W
         p_dc = self.calibration * p_dc # type: ignore
 
-        return p_dc.to_frame() # type: ignore
+        return [float(x) for x in p_dc.tolist()]  # type: ignore
+    
+class PanelGroup(Panel):
+    def __init__(self, panels: list[Panel,]):
+        self._panels = panels
+
+    def predicted_production_by_hour(self, weather: Weather) -> list[float]:
+        p_dc = [x.predicted_production_by_hour(weather) for x in self._panels]
+        p_dc = np.sum(np.column_stack(p_dc), axis=-1, keepdims=False).tolist()
+
+        return p_dc
+
+        

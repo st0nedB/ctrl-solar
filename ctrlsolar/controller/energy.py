@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta
-from ctrlsolar.abstracts import Panel, Weather, Controller, DCCoupledBattery, Consumer
-import pandas as pd
-import numpy as np
+from datetime import datetime
+from ctrlsolar.panels.abstract import Weather, Panel
+from ctrlsolar.battery.abstract import DCCoupledBattery
+from ctrlsolar.mqtt.abstract import Consumer
+from ctrlsolar.controller.abstract import Controller
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,42 +13,18 @@ class EnergyForecast:
     def __init__(
         self,
         weather: Weather,
-        panels: list[Panel],
-        max_age: timedelta = timedelta(hours=1),
+        panels: Panel,
     ):
-        self.weather = weather
-        self.panels = panels
-        self.max_age = max_age
-        self._weather: pd.DataFrame | None = None
-        self._weather_age = None
-
-    def _update_forecast(self) -> None:
-        if self._weather is None:
-            self._weather = self.weather.get()
-            self._weather_age = datetime.now()
-        else:
-            if self._weather_age is not None:
-                if datetime.now() - self._weather_age > self.max_age:
-                    self._weather = self.weather.get()
-                    self._weather_age = datetime.now()
-
-        return
+        self._weather = weather
+        self._panels = panels
 
     def daily_production_estimate(self) -> float:
-        self._update_forecast()
-        p_dcs = 0.0
-        if self._weather is not None:
-            p_dcs = sum([float(x.predicted_production_by_hour(forecast=self._weather).values.sum()) for x in self.panels])
+        p_dcs = sum(self.hourly_production_estimate())
         
         return p_dcs
 
     def hourly_production_estimate(self) -> list[float,]:
-        self._update_forecast()
-        p_dcs = 24*[0.]
-        if self._weather is not None:
-            p_dcs = np.sum(np.column_stack([x.predicted_production_by_hour(forecast=self._weather).values for x in self.panels]), axis=-1, keepdims=False).tolist()
-        
-        return p_dcs
+        return self._panels.predicted_production_by_hour(self._weather)
 
     def remaining_energy_production_today(self, remaining_hours: int) -> float:
         hour = datetime.now().hour                  
@@ -62,10 +39,20 @@ class EnergyForecast:
     
 
 class EnergyController(Controller):
-    def __init__(self, battery: DCCoupledBattery, forecast: EnergyForecast, p_min: float, p_max: float, power: Consumer):
-        self._power_setter = power
+    def __init__(self, 
+                 battery: DCCoupledBattery, 
+                 weather: Weather,
+                 panels: Panel,
+                 p_min: float, 
+                 p_max: float, 
+                 power_consumer: Consumer
+        ):
+        self._power_setter = power_consumer
         self._battery = battery
-        self._forecast = forecast
+        self._forecast = EnergyForecast(
+            weather=weather,
+            panels=panels,
+        )
         self._p_min_limit = p_min
         self._p_max_limit = p_max
         

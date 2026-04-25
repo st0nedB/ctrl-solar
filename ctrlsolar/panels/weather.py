@@ -4,7 +4,7 @@ from pvlib.location import Location # type:ignore
 from datetime import datetime, timedelta
 import logging
 from typing import TypedDict, cast
-from ctrlsolar.abstracts.weather import Weather
+from ctrlsolar.panels.abstract import Weather
 
 logger = logging.getLogger(__name__)
 

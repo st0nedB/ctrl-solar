@@ -10,8 +10,17 @@ __all__ = [
 
 class DCCoupledBattery(ABC):
     max_power: int  # in [W]
-    capacity: int  # in [Wh]
     serial_number: str  # battery serial number
+
+    @property
+    @abstractmethod
+    def n_batteries(self) -> int | None:
+        pass
+
+    @property
+    @abstractmethod
+    def capacity(self) -> int:
+        pass
 
     @property
     @abstractmethod

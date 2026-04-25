@@ -24,6 +24,11 @@ class DCCoupledBattery(ABC):
 
     @property
     @abstractmethod
+    def online(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
     def state_of_charge(self) -> float | None:
         pass
 

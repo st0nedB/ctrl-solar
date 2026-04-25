@@ -34,23 +34,8 @@ class DCCoupledBattery(ABC):
 
     @output_power.setter
     @abstractmethod
-    def output_power(self) -> None:
+    def output_power(self, power: int | float) -> None:
         pass    
-
-    @property
-    @abstractmethod
-    def discharge_power(self) -> float | None:
-        pass
-
-    @property
-    @abstractmethod
-    def charge_power(self) -> float | None:
-        pass
-
-    @property
-    @abstractmethod
-    def solar_power(self) -> float | None:
-        pass
 
     @property
     @abstractmethod

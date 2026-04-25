@@ -6,10 +6,10 @@ from typing import Any, Optional, cast
 @dataclass
 class Config:
     panels: list[dict[str, Any]]
+    battery_sn: str
     power_min: int = 200
     power_max: int = 800
     power_check_topic: Optional[str] = None
-    grobro_root_topic: str = "homeassistant/grobro"
 
     latitude: float = 42.46903090913205
     longitude: float = -71.35063628495487
@@ -23,8 +23,10 @@ class Config:
     update_interval_s: int = 3600
 
     @classmethod
-    def from_yaml(cls, file: str):
-        config: dict[str, Any] = yaml.safe_load(file) or {}
+    def from_yaml(cls, file_path: str):
+        with open(file_path, "r", encoding="utf-8") as file:
+            config: dict[str, Any] = yaml.safe_load(file) or {}
+            
         raw_panels = config.get("panels", [])
         if not isinstance(raw_panels, list):
             raise ValueError("Expected 'panels' to be a list of dictionaries.")
@@ -37,9 +39,9 @@ class Config:
 
         return cls(
             panels=panels,
+            battery_sn=str(config.get("battery_sn")),
             power_min=int(config.get("power_min", cls.power_min)),
             power_max=int(config.get("power_max", cls.power_max)),
-            grobro_root_topic=str(config.get("grobro_root_topic", cls.grobro_root_topic)),
             latitude=float(config.get("latitude", cls.latitude)),
             longitude=float(config.get("longitude", cls.longitude)),
             timezone=str(config.get("timezone", cls.timezone)),

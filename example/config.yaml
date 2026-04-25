@@ -6,6 +6,9 @@ latitude: 42.46903090913205
 longitude: -71.35063628495487
 timezone: America/New_York
 
+battery_sn: 0PVPH6ZR23QT00D9
+update_interval_s: 20
+
 panels:
   - tilt: 45
     azimuth: 180

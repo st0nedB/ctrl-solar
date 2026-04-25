@@ -5,10 +5,13 @@ from ctrlsolar.panels import OpenMeteoWeather, GenericPanel, PanelGroup
 from ctrlsolar.config import Config
 import time
 import logging
+import argparse
 
 logger = logging.getLogger(__name__)
 
-def run(config: Config) -> None:
+def run(config_file: str) -> None:
+    config = Config.from_yaml(config_file)
+
     mqtt = Mqtt(
         host=config.mqtt_host, 
         port=config.mqtt_port,
@@ -38,7 +41,7 @@ def run(config: Config) -> None:
         ) for panel in config.panels]
 
     panels = PanelGroup(panel_list)
-    battery = Noah2000.from_grobro(config.grobro_root_topic)
+    battery = Noah2000.from_grobro(config.battery_sn)
     weather = OpenMeteoWeather(
         latitude=config.latitude,
         longitude=config.longitude,
@@ -58,6 +61,7 @@ def run(config: Config) -> None:
 
     # run in loop
     try:
+        time.sleep(30)
         while True:
             for cc in controllers:
                 print()
@@ -74,5 +78,12 @@ def run(config: Config) -> None:
     return
 
 if __name__ == "__main__":
-    config = Config.from_yaml("config.yaml")
-    run(config=config)
+    logging.basicConfig(level=logging.INFO)
+    parser = argparse.ArgumentParser(description="Run the ctrlsolar app")
+    parser.add_argument(
+        "--config-file",
+        default="example/config.yaml",
+        help="Path to YAML config file",
+    )
+    args = parser.parse_args()
+    run(config_file=args.config_file)

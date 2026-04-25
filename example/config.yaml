@@ -7,7 +7,7 @@ longitude: -71.35063628495487
 timezone: America/New_York
 
 battery_sn: 0PVPH6ZR23QT00D9
-update_interval_s: 20
+update_interval_s: 3600
 
 panels:
   - tilt: 45

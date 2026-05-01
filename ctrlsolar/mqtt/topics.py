@@ -25,10 +25,10 @@ HOURLY_FORECAST_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/hou
 DISCOVERY: dict[str, dict[str, Any]] = {
     "set_power": {
         "component": "sensor",
-        "object_id": "set_power",
+        "object_id": "power_target",
         "config": {
-            "name": "{device_name} Set Power",
-            "unique_id": "ctrlsolar_{device_id}_set_power",
+            "name": "{device_name} Power Target",
+            "unique_id": "ctrlsolar_{device_id}_power_target",
             "state_topic": TOPICS["set_power_state"],
             "json_attributes_topic": TOPICS["set_power_attributes"],
             "unit_of_measurement": "W",

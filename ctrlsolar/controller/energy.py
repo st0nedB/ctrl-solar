@@ -42,6 +42,7 @@ class EnergyForecast:
 
 class EnergyController(Controller):
     name: str = "EnergyController"
+    _fallback: int = 100
     def __init__(self, 
                  battery: DCCoupledBattery, 
                  weather: Weather,
@@ -124,8 +125,8 @@ class EnergyController(Controller):
             logger.info(f"Hour {hour}/24, which is production mode. Power-target is evaluated to {target_W} W.")
 
         else:
-            logger.warning(f"Failed to determine Phase. Setting fallback power of 200W.")
-            target_W = 200
+            logger.warning(f"Failed to determine Phase. Setting fallback power of {self._fallback} W.")
+            target_W = self._fallback
 
         if self._battery.online:
             if target_W is not None:

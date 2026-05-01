@@ -79,7 +79,7 @@ class EnergyController(Controller):
         self._battery_hours = [h for h in range(24) if h not in self._production_hours]
         return                 
     
-    def evaluate_production_power_target(self) -> float | None:
+    def evaluate_production_power_target(self) -> int | None:
         missing_Wh = self._battery.energy_missing
         target_W = None
         if missing_Wh is not None: 
@@ -92,17 +92,19 @@ class EnergyController(Controller):
                 self._p_max,
                 next_hour_expected_Wh / 1, # /1h
             )
+
+            target_W = int((target_W // 10) * 10)
         else:
             logger.warning(f"Missing information about battery charge state.  Skipping!")
         
         return target_W
     
-    def evaluate_battery_power_target(self) -> float | None:
+    def evaluate_battery_power_target(self) -> int | None:
         charge = self._battery.energy_charged
         target_W = None
         if charge is not None:
-            target_W = min(charge / len(self._battery_hours), self._p_min)
-
+            target_W = max(charge / len(self._battery_hours), self._p_min)
+            target_W = int((target_W // 10) * 10)
         else:
             logger.warning(f"Missing information about battery charge state. Skipping!")
         
@@ -127,6 +129,7 @@ class EnergyController(Controller):
 
         if self._battery.online:
             if target_W is not None:
+                logger.info(f"Updated maximum power to {target_W} from {int(self._battery.output_power)}.")
                 self._battery.output_power = target_W
         else:
             logger.info(f"Battery is offline! Skipping update.")

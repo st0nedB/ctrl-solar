@@ -1,4 +1,5 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
+import json
 import paho.mqtt.client as mqtt
 import logging
 from ctrlsolar.mqtt.abstract import Sensor, Consumer
@@ -25,6 +26,13 @@ class Mqtt:
     def connect(self):
         self.client.connect(self.broker, self.port)
         self.client.loop_start()
+
+    def publish(self, topic: str, payload: Any, qos: int = 1, retain: bool = True):
+        if isinstance(payload, (dict, list)):
+            payload = json.dumps(payload)
+
+        self.client.publish(topic, payload, qos=qos, retain=retain)
+        return
 
     def disconnect(self):
         self.client.disconnect()
@@ -79,12 +87,10 @@ class MqttConsumer(Consumer):
         self.topic = topic
 
     def set(self, value: str | int | float):
-        self.mqtt.client.publish(self.topic, value)
+        self.mqtt.publish(self.topic, value)
         return
 
-
 # Mqtt singleton to be used
-
 _mqtt: Mqtt | None = None
 
 def set_mqtt(client: Mqtt) -> None:

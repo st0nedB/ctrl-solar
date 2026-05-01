@@ -1,4 +1,5 @@
 from ctrlsolar.mqtt.mqtt import set_mqtt, Mqtt
+import ctrlsolar.mqtt.topics as mqtt_topics
 from ctrlsolar.controller import EnergyController
 from ctrlsolar.battery import Noah2000
 from ctrlsolar.panels import OpenMeteoWeather, GenericPanel, PanelGroup
@@ -8,6 +9,12 @@ import logging
 import argparse
 
 logger = logging.getLogger(__name__)
+
+
+def publish_discovery(mqtt: Mqtt, device_id: str) -> None:
+    mqtt.publish(mqtt_topics.TOPICS["availability"].format(device_id=device_id), "online", retain=True)
+    for topic, payload in mqtt_topics.discovery_items(device_id):
+        mqtt.publish(topic, payload, retain=True)
 
 def run(config_file: str) -> None:
     config = Config.from_yaml(config_file)
@@ -58,6 +65,9 @@ def run(config_file: str) -> None:
             p_max=config.power_max,
         )
     ]
+
+    if config.ha_autodiscovery:
+        publish_discovery(mqtt, battery.serial_number)    
 
     # run in loop
     try:

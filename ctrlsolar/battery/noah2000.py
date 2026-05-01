@@ -15,8 +15,11 @@ class Noah2000(DCCoupledBattery):
 
     def __init__(
         self,
+        serial_number: str,
         online_sensor: Sensor,
         state_of_charge_sensor: Sensor,
+        discharge_limit_sensor: Sensor, 
+        charge_limit_sensor: Sensor, 
         output_power_sensor: Sensor,
         output_power_consumer: Consumer,
         n_batteries_sensor: Sensor,
@@ -24,8 +27,11 @@ class Noah2000(DCCoupledBattery):
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
+        self.serial_number = serial_number
         self._online_sensor = online_sensor
         self._soc_sensor = state_of_charge_sensor
+        self._discharge_limit_sensor=discharge_limit_sensor
+        self._charge_limit_sensor=charge_limit_sensor
         self._output_power_sensor = output_power_sensor
         self._output_power_consumer = output_power_consumer
         self._n_batteries_sensor = n_batteries_sensor
@@ -48,6 +54,14 @@ class Noah2000(DCCoupledBattery):
     @property
     def state_of_charge(self) -> float | None:
         return self._soc_sensor.get()
+    
+    @property
+    def discharge_limit(self) -> float | None:
+        return self._discharge_limit_sensor.get()
+    
+    @property
+    def charge_limit(self) -> float | None:
+        return self._charge_limit_sensor.get()
 
     @property
     def output_power(self) -> float | None:
@@ -87,6 +101,18 @@ class Noah2000(DCCoupledBattery):
                 json.loads(y)["tot_bat_soc_pct"]  # type: ignore
             )],
         )
+        discharge_limit_sensor = MqttSensor(
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
+            filter=[lambda y: (lambda x: float(x) / 100 if x is not None else 0)(  # type: ignore
+                json.loads(y)["discharge_limit"]  # type: ignore
+            )],
+        )
+        charge_limit_sensor = MqttSensor(
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
+            filter=[lambda y: (lambda x: float(x) / 100 if x is not None else 0)(  # type: ignore
+                json.loads(y)["charge_limit"]  # type: ignore
+            )],
+        )
         output_power_sensor = MqttSensor(
             topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=[lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
@@ -109,9 +135,13 @@ class Noah2000(DCCoupledBattery):
         )
 
         return cls(
+            serial_number=serial,
             online_sensor=online_sensor,
             state_of_charge_sensor=state_of_charge_sensor,
+            discharge_limit_sensor=discharge_limit_sensor,
+            charge_limit_sensor=charge_limit_sensor,
             output_power_sensor=output_power_sensor,
             output_power_consumer=output_power_consumer,
             n_batteries_sensor=n_battery_sensor,
         )
+        

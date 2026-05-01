@@ -21,6 +21,7 @@ class Config:
     mqtt_password: str = field(default_factory=lambda: os.getenv("MQTT_PASSWORD", ""))
 
     update_interval_s: int = 3600
+    ha_autodiscovery: bool = False
 
     @classmethod
     def from_yaml(cls, file_path: str):
@@ -47,5 +48,6 @@ class Config:
             timezone=str(config.get("timezone", cls.timezone)),
             mqtt_host=str(config.get("host", cls.mqtt_host)),
             mqtt_port=int(config.get("port", cls.mqtt_port)),
-            update_interval_s=int(config.get("update_interval_s", cls.update_interval_s))
+            update_interval_s=int(config.get("update_interval_s", cls.update_interval_s)), 
+            ha_autodiscovery=bool(config.get("ha_autodiscovery", cls.ha_autodiscovery))
         )

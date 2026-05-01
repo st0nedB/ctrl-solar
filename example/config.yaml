@@ -7,7 +7,7 @@ longitude: -71.35063628495487
 timezone: America/New_York
 
 battery_sn: <Growatt Battery Serial>
-update_interval_s: 3600
+update_interval_s: 600
 
 panels:
   - tilt: 45

@@ -29,7 +29,7 @@ class GenericPanel(Panel):
         self.efficiency = efficiency
         self.calibration = calibration if calibration is not None else 24 * [1]
 
-    def predicted_production_by_hour(self, weather: Weather) -> list[float]:
+    def predicted_production_by_hour(self, weather: Weather) -> dict[int, float]:
         weather_today = weather.get()
         poa = get_total_irradiance( # type: ignore
             surface_tilt=self.tilt,
@@ -40,19 +40,22 @@ class GenericPanel(Panel):
             ghi=weather_today["GHI"],
             dhi=weather_today["DHI"],
         )
-        p_dc = poa["poa_global"] * self.area * self.efficiency  # type: ignore # in W
-        p_dc = self.calibration * p_dc # type: ignore
+        energy = poa["poa_global"] * self.area * self.efficiency    # type: ignore # in Wh
+        energy = self.calibration * energy                          # type: ignore
+        energy = [float(x) for x in energy.tolist()]                # type: ignore
+        energy_by_hour = dict(zip(range(24), energy))
 
-        return [float(x) for x in p_dc.tolist()]  # type: ignore
+        return energy_by_hour
     
 class PanelGroup(Panel):
     def __init__(self, panels: Sequence[Panel,]):
         self._panels = panels
 
-    def predicted_production_by_hour(self, weather: Weather) -> list[float]:
-        p_dc = [x.predicted_production_by_hour(weather) for x in self._panels]
-        p_dc = np.sum(np.column_stack(p_dc), axis=-1, keepdims=False).tolist()
+    def predicted_production_by_hour(self, weather: Weather) -> dict[int, float]:
+        energy = [list(x.predicted_production_by_hour(weather).values()) for x in self._panels]
+        energy = np.sum(np.column_stack(energy), axis=-1, keepdims=False).tolist()
+        energy_by_hour = dict(zip(range(24), energy))
 
-        return p_dc
+        return energy_by_hour
 
         

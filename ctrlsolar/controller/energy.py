@@ -16,21 +16,26 @@ class EnergyForecast:
         self._panels = panels
 
     def daily_production_estimate(self) -> float:
-        p_dcs = sum(self.hourly_production_estimate())
+        p_dcs = sum(self.hourly_production_estimates())
         
         return p_dcs
 
-    def hourly_production_estimate(self) -> list[float,]:
-        return self._panels.predicted_production_by_hour(self._weather)
+    def hourly_production_estimates(self) -> list[float,]:
+        # TODO: Publish to MQTT for HA
+        return list(self._panels.predicted_production_by_hour(self._weather).values())
+    
+    def next_hour_production_estimate(self) -> float:
+        hour = datetime.now().hour
+        return self._panels.predicted_production_by_hour(self._weather)[hour]
 
     def remaining_energy_production_today(self, remaining_hours: int) -> float:
         hour = datetime.now().hour                  
-        energy = sum(self.hourly_production_estimate()[hour:hour+remaining_hours])
+        energy = sum(self.hourly_production_estimates()[hour:hour+remaining_hours])
         return energy
 
     def remaining_production_hours_today(self, cutoff_energy_kWh: float) -> int:
         hour = datetime.now().hour  
-        energy = self.hourly_production_estimate()[hour:]         
+        energy = self.hourly_production_estimates()[hour:]         
         index = [x < cutoff_energy_kWh for x in energy].index(True)
         return index
     
@@ -49,33 +54,43 @@ class EnergyController(Controller):
             weather=weather,
             panels=panels,
         )
-        self._p_min_limit = p_min
-        self._p_max_limit = p_max
+        self._p_min = p_min
+        self._p_max = p_max
 
         self._battery_hours = []
         self._production_hours = []
+
+        # TODO: On every hour, compute what the power production target and store it internally
+        # WHY:
+        # - Easier to debug, because the entire schedule is visible 
+        # - Schedule can be published via MQTT for debugging
+        # Assumptions: 
+        # - Never produce more in an hour than is available from solar
+        self._schedule: dict[int, float] = dict(zip(range(24), 24*[self._p_min]))
         
         return 
-    
+
     def evaluate_day_schedule(self) -> None:
-        energy = self._forecast.hourly_production_estimate()
-        prod_start = [x > self._p_min_limit for x in energy].index(True)
-        prod_end = 24 - [x < self._p_min_limit for x in energy[::-1]].index(False)
+        energy = self._forecast.hourly_production_estimates()
+        prod_start = [x > self._p_min for x in energy].index(True)
+        prod_end = 24 - [x < self._p_min for x in energy[::-1]].index(False)
 
         self._production_hours = [*range(prod_start, prod_end)]
         self._battery_hours = [h for h in range(24) if h not in self._production_hours]
-        return 
+        return                 
     
     def evaluate_production_power_target(self) -> float | None:
         missing_Wh = self._battery.energy_missing
         target_W = None
         if missing_Wh is not None: 
-            prod_remaining_h = self._forecast.remaining_production_hours_today(cutoff_energy_kWh=self._p_min_limit * 1)  # 1h
+            prod_remaining_h = self._forecast.remaining_production_hours_today(cutoff_energy_kWh=self._p_min * 1)  # *1h
             prod_remaining_Wh = self._forecast.remaining_energy_production_today(remaining_hours=prod_remaining_h)
+            next_hour_expected_Wh = self._forecast.next_hour_production_estimate()
 
             target_W = min(
                 (prod_remaining_Wh - missing_Wh) / prod_remaining_h,
-                self._p_max_limit
+                self._p_max,
+                next_hour_expected_Wh / 1, # /1h
             )
         else:
             logger.warning(f"Missing information about battery charge state.  Skipping!")
@@ -86,7 +101,7 @@ class EnergyController(Controller):
         charge = self._battery.energy_charged
         target_W = None
         if charge is not None:
-            target_W = charge / len(self._battery_hours)    
+            target_W = min(charge / len(self._battery_hours), self._p_min)
 
         else:
             logger.warning(f"Missing information about battery charge state. Skipping!")

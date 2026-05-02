@@ -3,24 +3,63 @@ from ctrlsolar.panels.abstract import Weather, Panel
 from ctrlsolar.battery.abstract import DCCoupledBattery
 from ctrlsolar.controller.abstract import Controller
 from ctrlsolar.mqtt.mqtt import get_mqtt
-from ctrlsolar.mqtt.topics import TOPICS, HOURLY_FORECAST_TOPIC_TEMPLATE
+from ctrlsolar.mqtt.topics import TOPICS, HOURLY_FORECAST_TOPIC_TEMPLATE, HOURLY_PRODUCTION_TOPIC_TEMPLATE
 import logging
 
 logger = logging.getLogger(__name__)
 
+class EnergyMonitor:
+    def __init__(self, battery: DCCoupledBattery):
+        self._battery = battery
+        self._last_val_Wh: float = 0.0
+        self._hour: int = 0
+        self._day = datetime.now().day  
+        self._energy_tracker = dict(zip(range(24), 24*[0.]))
+
+    def _reset_tracker(self):
+        day = datetime.now().day
+        hour = datetime.now().hour
+        if day != self._day:
+            self._energy_tracker = dict(zip(range(24), 24*[0.]))
+            self._day = day
+
+        if hour != self._hour:
+            self._energy_tracker[hour] = 0.0
+            self._last_val_h = hour
+
+        return        
+
+    def update(self):
+        hour = datetime.now().hour
+        energy = self._battery.energy_out
+        delta = energy - self._last_val_Wh
+
+        if delta < 0:
+            logger.warning(f"Measured a negative energy production, but should be strictly positive. Not updating!")
+
+        self._energy_tracker[hour] += delta
+        return
+
+    def publish(self):
+        self.update()
+        mqtt = get_mqtt()
+        for hh, val in self._energy_tracker.items():
+            topic = HOURLY_PRODUCTION_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number, hour=hh)
+            mqtt.publish(topic, round(val, 2))
+
+        return
+        
 
 class EnergyForecast:
     def __init__(
         self,
         weather: Weather,
         panels: Panel,
+        device_id: str,
     ):
         self._weather = weather
         self._panels = panels
-
-    def daily_production_estimate(self) -> float:
-        p_dcs = sum(self.hourly_production_estimates())
-        return p_dcs
+        self._device_id = device_id
 
     def hourly_production_estimates(self) -> list[float,]:
         return list(self._panels.predicted_production_by_hour(self._weather).values())
@@ -28,6 +67,10 @@ class EnergyForecast:
     def next_hour_production_estimate(self) -> float:
         hour = datetime.now().hour
         return self._panels.predicted_production_by_hour(self._weather)[hour]
+
+    def daily_production_estimate(self) -> float:
+        p_dcs = sum(self.hourly_production_estimates())
+        return p_dcs
 
     def remaining_energy_production_today(self, remaining_hours: int) -> float:
         hour = datetime.now().hour
@@ -40,13 +83,14 @@ class EnergyForecast:
         index = [x < cutoff_energy_kWh for x in energy].index(True)
         return index
 
-    def publish_forecast(self, device_id: str):
+    def publish(self):
+        _ = self.hourly_production_estimates()  # ensures values are up to date
         mqtt = get_mqtt()
         energy = self.hourly_production_estimates()
         energy = [round(x, 2) for x in energy]
         # Publish each hour to its own topic as a numeric value (Wh).
         for hour, value in enumerate(energy):
-            topic = HOURLY_FORECAST_TOPIC_TEMPLATE.format(device_id=device_id, hour=hour)
+            topic = HOURLY_FORECAST_TOPIC_TEMPLATE.format(device_id=self._device_id, hour=hour)
             mqtt.publish(topic, value)
         return
 
@@ -67,6 +111,10 @@ class EnergyController(Controller):
         self._forecast = EnergyForecast(
             weather=weather,
             panels=panels,
+            device_id=self._battery.serial_number
+        )
+        self._monitor = EnergyMonitor(
+            battery=battery
         )
         self._p_min = p_min
         self._p_max = p_max
@@ -137,11 +185,15 @@ class EnergyController(Controller):
             logger.warning(f"Missing information about battery charge state. Skipping!")
 
         return target_W
+    
+    def publish_results(self):
+        self._forecast.publish()
+        self._monitor.publish()
+        return 
 
     def update(self):
         hour = datetime.now().hour
         self.evaluate_day_schedule()
-        self._forecast.publish_forecast(device_id=self._battery.serial_number)
 
         if hour in self._battery_hours:
             target_W = self.evaluate_battery_power_target()
@@ -169,4 +221,5 @@ class EnergyController(Controller):
         else:
             logger.info(f"Battery is offline! Skipping update.")
 
+        self.publish_results()
         return

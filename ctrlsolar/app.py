@@ -11,7 +11,7 @@ import argparse
 logger = logging.getLogger(__name__)
 
 
-def publish_discovery(mqtt: Mqtt, device_id: str) -> None:
+def publish_ha_autodiscovery(mqtt: Mqtt, device_id: str) -> None:
     mqtt.publish(mqtt_topics.TOPICS["availability"].format(device_id=device_id), "online", retain=True)
     for topic, payload in mqtt_topics.discovery_items(device_id):
         mqtt.publish(topic, payload, retain=True)
@@ -37,7 +37,7 @@ def run(config_file: str) -> None:
         if ii == 4:
             raise RuntimeError(f"Connection to MQTT broker could not be established.")
 
-    # create 
+    # create solar panels
     panel_list = [
         GenericPanel(
             tilt=float(panel["tilt"]),
@@ -67,7 +67,7 @@ def run(config_file: str) -> None:
     ]
 
     if config.ha_autodiscovery:
-        publish_discovery(mqtt, battery.serial_number)    
+        publish_ha_autodiscovery(mqtt, battery.serial_number)    
 
     # run in loop
     try:

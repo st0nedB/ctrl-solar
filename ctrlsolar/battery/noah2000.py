@@ -23,6 +23,7 @@ class Noah2000(DCCoupledBattery):
         output_power_sensor: Sensor,
         output_power_consumer: Consumer,
         n_batteries_sensor: Sensor,
+        energy_out_sensor: Sensor,
         *args: Any,
         **kwargs: Any,
     ):
@@ -35,6 +36,7 @@ class Noah2000(DCCoupledBattery):
         self._output_power_sensor = output_power_sensor
         self._output_power_consumer = output_power_consumer
         self._n_batteries_sensor = n_batteries_sensor
+        self._energy_out = energy_out_sensor
 
     @property
     def online(self) -> bool:
@@ -50,6 +52,10 @@ class Noah2000(DCCoupledBattery):
         if n is None:
             n = 1
         return n
+    
+    @property
+    def energy_out(self) -> float:
+        return self._energy_out.get() * 1E3
 
     @property
     def state_of_charge(self) -> float | None:
@@ -133,6 +139,12 @@ class Noah2000(DCCoupledBattery):
                 json.loads(y)["bat_cnt"]  # type: ignore
             )],  # type: ignore
         )
+        energy_out_sensor = MqttSensor(
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
+            filter=[lambda y: (lambda x: 1E3*float(x) if x is not None else None)(  # type: ignore
+                json.loads(y)["eng_out_device"]  # type: ignore
+            )],
+        )
 
         return cls(
             serial_number=serial,
@@ -143,5 +155,6 @@ class Noah2000(DCCoupledBattery):
             output_power_sensor=output_power_sensor,
             output_power_consumer=output_power_consumer,
             n_batteries_sensor=n_battery_sensor,
+            energy_out_sensor=energy_out_sensor,
         )
         

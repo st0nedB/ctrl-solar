@@ -20,6 +20,9 @@ TOPICS: dict[str, str] = {
 # Hourly forecast topic template (use str.format with device_id and hour)
 HOURLY_FORECAST_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/hour_{hour}/state"
 
+# Hourly production topic template (use str.format with device_id and hour)
+HOURLY_PRODUCTION_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_production/hour_{hour}/state"
+
 # Home Assistant discovery payload templates.
 # These payloads contain placeholders (`{device_id}`, `{device_name}`, `{discovery_prefix}`) which should be filled by the caller using `.format(...)`.
 DISCOVERY: dict[str, dict[str, Any]] = {
@@ -33,6 +36,26 @@ DISCOVERY: dict[str, dict[str, Any]] = {
             "json_attributes_topic": TOPICS["set_power_attributes"],
             "unit_of_measurement": "W",
             "device_class": "power",
+            "state_class": "measurement",
+            "availability_topic": TOPICS["availability"],
+            "device": {
+                "identifiers": ["ctrlsolar_{device_id}"],
+                "name": "{device_name}",
+                "model": "ctrlsolar",
+                "manufacturer": "ctrlsolar",
+            },
+        },
+    },
+    "hourly_production": {
+        "component": "sensor",
+        "object_id": "hourly_production",
+        "config": {
+            "name": "{device_name} Hourly Production",
+            "unique_id": "ctrlsolar_{device_id}_hourly_production",
+            "state_topic": TOPICS["hourly_production_state"],
+            "json_attributes_topic": TOPICS["hourly_production_attributes"],
+            "unit_of_measurement": "Wh",
+            "device_class": "energy",
             "state_class": "measurement",
             "availability_topic": TOPICS["availability"],
             "device": {
@@ -134,7 +157,10 @@ def discovery_items(
 
     Includes set_power sensor and 24 hourly forecast sensors (one per hour).
     """
-    items = [discovery_item("set_power", device_id, device_name, discovery_prefix)]
+    items = [
+        discovery_item("set_power", device_id, device_name, discovery_prefix),
+        discovery_item("hourly_production", device_id, device_name, discovery_prefix),
+    ]
     items.extend(
         hourly_forecast_discovery_item(hour, device_id, device_name, discovery_prefix)
         for hour in range(24)

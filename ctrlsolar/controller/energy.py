@@ -44,11 +44,12 @@ class EnergyMonitor:
         hour = datetime.now(get_timezone()).hour
         energy = self._battery.energy_out
         delta = energy - self._last_val_Wh
+        print(delta, energy, self._last_val_Wh)
 
         if delta < 0:
             logger.warning(f"Measured a negative energy production, but should be strictly positive. Not updating!")
         else:
-            logger.info(f"Detected a delta={delta} Wh.")
+            logger.info(f"Detected a delta={delta:.2f} Wh.")
             self._energy_tracker[hour] += delta
             self._last_val_Wh = energy
 
@@ -186,7 +187,7 @@ class EnergyController(Controller):
             target_W = int((target_W // 10) * 10)
         else:
             logger.warning(
-                f"Missing information about battery charge state.  Skipping!"
+                f"Missing information about battery charge state. Skipping!"
             )
 
         return target_W
@@ -200,10 +201,10 @@ class EnergyController(Controller):
         if charge is not None:
             target_W = charge / len(self._battery_hours)
             logger.info(
-                f"Maxmimum sustainable discharge power until next production period is {target_W} W."
+                f"Maxmimum sustainable discharge power until next production period is {target_W:.2f} W."
             )
             target_W = max(target_W, self._p_min)
-            logger.info(f"Evaluated power result is {target_W} W.")
+            logger.info(f"Evaluated power result is {target_W:.2f} W.")
             target_W = int((target_W // 10) * 10)
         else:
             logger.warning(f"Missing information about battery charge state. Skipping!")
@@ -232,24 +233,24 @@ class EnergyController(Controller):
         if hour in self._battery_hours:
             target_W = self.evaluate_battery_power_target()
             logger.info(
-                f"Hour {hour}/24, which is battery mode. Power-target is evaluated to {target_W} W."
+                f"Hour {hour}/24, which is battery mode. Power-target is evaluated to {target_W:.2f} W."
             )
 
         elif hour in self._production_hours:
             target_W = self.evaluate_production_power_target()
             logger.info(
-                f"Hour {hour}/24, which is production mode. Power-target is evaluated to {target_W} W."
+                f"Hour {hour}/24, which is production mode. Power-target is evaluated to {target_W:.2f} W."
             )
 
         else:
             logger.warning(
-                f"Failed to determine Phase. Setting fallback power of {self._fallback} W."
+                f"Failed to determine Phase. Setting fallback power of {self._fallback:.2f} W."
             )
             target_W = self._fallback
 
         if self._battery.online:
             if target_W is not None:
-                logger.info(f"Updated maximum power to {target_W} from {int(self._battery.output_power)}.")  # type: ignore
+                logger.info(f"Updated maximum power to {target_W} W from {int(self._battery.output_power)} W.")  # type: ignore
                 self._battery.output_power = target_W
                 self.publish_set_power(target_W)
         else:

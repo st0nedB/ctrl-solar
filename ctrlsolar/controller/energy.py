@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class EnergyMonitor:
     def __init__(self, battery: DCCoupledBattery):
         self._battery = battery
-        self._last_val_Wh: float = 0.0
+        self._last_val_Wh = None
         self._hour: int = 0
         self._day = datetime.now(get_timezone()).day  
         self._energy_tracker = dict(zip(range(24), 24*[0.]))
@@ -34,7 +34,7 @@ class EnergyMonitor:
             self._energy_tracker[hour] = 0.0
             self._last_val_h = hour
 
-        if self._last_val_Wh == 0.0:
+        if self._last_val_Wh == None:
             self._last_val_Wh = self._battery.energy_out
 
         return        
@@ -47,8 +47,11 @@ class EnergyMonitor:
 
         if delta < 0:
             logger.warning(f"Measured a negative energy production, but should be strictly positive. Not updating!")
+        else:
+            logger.info(f"Detected a delta={delta} Wh.")
+            self._energy_tracker[hour] += delta
+            self._last_val_Wh = energy
 
-        self._energy_tracker[hour] += delta
         return
 
     def publish(self):

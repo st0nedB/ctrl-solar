@@ -55,7 +55,7 @@ class Noah2000(DCCoupledBattery):
     
     @property
     def energy_out(self) -> float:
-        return self._energy_out.get() * 1E3
+        return self._energy_out.get()
 
     @property
     def state_of_charge(self) -> float | None:

@@ -3,7 +3,13 @@ from ctrlsolar.panels.abstract import Weather, Panel
 from ctrlsolar.battery.abstract import DCCoupledBattery
 from ctrlsolar.controller.abstract import Controller
 from ctrlsolar.mqtt.mqtt import get_mqtt
-from ctrlsolar.mqtt.topics import TOPICS, HOURLY_FORECAST_TOPIC_TEMPLATE, HOURLY_PRODUCTION_TOPIC_TEMPLATE
+from ctrlsolar.mqtt.topics import (
+    TOPICS,
+    HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE,
+    HOURLY_FORECAST_STATE_TOPIC_TEMPLATE,
+    HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE,
+    HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +33,9 @@ class EnergyMonitor:
             self._energy_tracker[hour] = 0.0
             self._last_val_h = hour
 
+        if self._last_val_Wh == 0.0:
+            self._last_val_Wh = self._battery.energy_out
+
         return        
 
     def update(self):
@@ -44,9 +53,14 @@ class EnergyMonitor:
     def publish(self):
         self.update()
         mqtt = get_mqtt()
-        for hh, val in self._energy_tracker.items():
-            topic = HOURLY_PRODUCTION_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number, hour=hh)
-            mqtt.publish(topic, round(val, 2))
+        mqtt.publish(
+            HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
+            datetime.now().date().isoformat(),
+        )
+        mqtt.publish(
+            HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
+            {hour: round(value, 2) for hour, value in self._energy_tracker.items()},
+        )
 
         return
         
@@ -85,14 +99,19 @@ class EnergyForecast:
         return index
 
     def publish(self):
-        _ = self.hourly_production_estimates()  # ensures values are up to date
         mqtt = get_mqtt()
-        energy = self.hourly_production_estimates()
-        energy = [round(x, 2) for x in energy]
-        # Publish each hour to its own topic as a numeric value (Wh).
-        for hour, value in enumerate(energy):
-            topic = HOURLY_FORECAST_TOPIC_TEMPLATE.format(device_id=self._device_id, hour=hour)
-            mqtt.publish(topic, value)
+        energy = {
+            hour: round(value, 2)
+            for hour, value in enumerate(self.hourly_production_estimates())
+        }
+        mqtt.publish(
+            HOURLY_FORECAST_STATE_TOPIC_TEMPLATE.format(device_id=self._device_id),
+            datetime.now().date().isoformat(),
+        )
+        mqtt.publish(
+            HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE.format(device_id=self._device_id),
+            energy,
+        )
         return
 
 
@@ -189,7 +208,17 @@ class EnergyController(Controller):
     
     def publish_results(self):
         self._forecast.publish()
-        self._monitor.publish()
+        self._monitor.update()
+        energy_tracker = getattr(self._monitor, "_energy_tracker")
+        mqtt = get_mqtt()
+        mqtt.publish(
+            HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
+            datetime.now().date().isoformat(),
+        )
+        mqtt.publish(
+            HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
+            energy_tracker,
+        )
         return 
 
     def update(self):

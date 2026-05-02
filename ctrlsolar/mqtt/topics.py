@@ -2,7 +2,7 @@
 
 This module defines standard topic formats used by the project and
 provides functions that generate Home Assistant discovery payloads
-for the `set_power` and `hourly_forecast` sensors.
+for the `set_power`, `hourly_forecast`, and `hourly_production` sensors.
 
 """
 from typing import Any, cast
@@ -17,11 +17,13 @@ TOPICS: dict[str, str] = {
     "set_power_attributes": "ctrlsolar/{device_id}/set_power/attributes",
 }
 
-# Hourly forecast topic template (use str.format with device_id and hour)
-HOURLY_FORECAST_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/hour_{hour}/state"
+# Hourly forecast topic templates (one HA sensor; hidden 24-hour payload)
+HOURLY_FORECAST_STATE_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/state"
+HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/attributes"
 
-# Hourly production topic template (use str.format with device_id and hour)
-HOURLY_PRODUCTION_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_production/hour_{hour}/state"
+# Hourly production topic templates (one HA sensor; hidden 24-hour payload)
+HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_production/state"
+HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_production/attributes"
 
 # Home Assistant discovery payload templates.
 # These payloads contain placeholders (`{device_id}`, `{device_name}`, `{discovery_prefix}`) which should be filled by the caller using `.format(...)`.
@@ -52,11 +54,27 @@ DISCOVERY: dict[str, dict[str, Any]] = {
         "config": {
             "name": "{device_name} Hourly Production",
             "unique_id": "ctrlsolar_{device_id}_hourly_production",
-            "state_topic": TOPICS["hourly_production_state"],
-            "json_attributes_topic": TOPICS["hourly_production_attributes"],
-            "unit_of_measurement": "Wh",
-            "device_class": "energy",
-            "state_class": "measurement",
+            "state_topic": HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE,
+            "json_attributes_topic": HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE,
+            "device_class": "date",
+            "availability_topic": TOPICS["availability"],
+            "device": {
+                "identifiers": ["ctrlsolar_{device_id}"],
+                "name": "{device_name}",
+                "model": "ctrlsolar",
+                "manufacturer": "ctrlsolar",
+            },
+        },
+    },
+    "hourly_forecast": {
+        "component": "sensor",
+        "object_id": "hourly_forecast",
+        "config": {
+            "name": "{device_name} Hourly Forecast",
+            "unique_id": "ctrlsolar_{device_id}_hourly_forecast",
+            "state_topic": HOURLY_FORECAST_STATE_TOPIC_TEMPLATE,
+            "json_attributes_topic": HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE,
+            "device_class": "date",
             "availability_topic": TOPICS["availability"],
             "device": {
                 "identifiers": ["ctrlsolar_{device_id}"],
@@ -107,47 +125,6 @@ def discovery_item(
     return topic, _fill(item["config"], device_id, device_name)
 
 
-def hourly_forecast_discovery_item(
-    hour: int,
-    device_id: str,
-    device_name: str = "CtrlSolar",
-    discovery_prefix: str = "homeassistant",
-) -> tuple[str, dict[str, Any]]:
-    """Return (topic, payload) for a single hourly forecast sensor.
-
-    Each hour (0-23) gets its own sensor entity.
-    Hour format shows the time range in the display name (e.g., "00:00-01:00").
-    """
-    hour_start = f"{hour:02d}:00"
-    hour_end = f"{(hour + 1) % 24:02d}:00"
-    time_range = f"{hour_start}-{hour_end}"
-    
-    object_id = f"hourly_forecast_hour_{hour}"
-    topic = DISCOVERY_TOPIC_TEMPLATE.format(
-        discovery_prefix=discovery_prefix,
-        component="sensor",
-        device_id=f"ctrlsolar_{device_id}",
-        object_id=object_id,
-    )
-    state_topic = HOURLY_FORECAST_TOPIC_TEMPLATE.format(device_id=device_id, hour=hour)
-    payload = {
-        "name": f"{{device_name}} Forecast {time_range}",
-        "unique_id": f"ctrlsolar_{{device_id}}_forecast_{time_range}",
-        "state_topic": state_topic,
-        "unit_of_measurement": "Wh",
-        "device_class": "energy",
-        "state_class": "measurement",
-        "availability_topic": TOPICS["availability"],
-        "device": {
-            "identifiers": ["ctrlsolar_{device_id}"],
-            "name": "{device_name}",
-            "model": "ctrlsolar",
-            "manufacturer": "ctrlsolar",
-        },
-    }
-    return topic, _fill(payload, device_id, device_name)
-
-
 def discovery_items(
     device_id: str,
     device_name: str = "CtrlSolar",
@@ -155,15 +132,12 @@ def discovery_items(
 ) -> list[tuple[str, dict[str, Any]]]:
     """Return topic/payload pairs for all discovery entries.
 
-    Includes set_power sensor and 24 hourly forecast sensors (one per hour).
+    Includes set_power, hourly forecast, and hourly production sensors.
     """
     items = [
         discovery_item("set_power", device_id, device_name, discovery_prefix),
+        discovery_item("hourly_forecast", device_id, device_name, discovery_prefix),
         discovery_item("hourly_production", device_id, device_name, discovery_prefix),
     ]
-    items.extend(
-        hourly_forecast_discovery_item(hour, device_id, device_name, discovery_prefix)
-        for hour in range(24)
-    )
     return items
 

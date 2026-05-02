@@ -30,6 +30,7 @@ class EnergyMonitor:
         return        
 
     def update(self):
+        self._reset_tracker()
         hour = datetime.now().hour
         energy = self._battery.energy_out
         delta = energy - self._last_val_Wh

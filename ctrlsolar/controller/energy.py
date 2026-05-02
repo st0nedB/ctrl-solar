@@ -44,7 +44,6 @@ class EnergyMonitor:
         hour = datetime.now(get_timezone()).hour
         energy = self._battery.energy_out
         delta = energy - self._last_val_Wh
-        print(delta, energy, self._last_val_Wh)
 
         if delta < 0:
             logger.warning(f"Measured a negative energy production, but should be strictly positive. Not updating!")

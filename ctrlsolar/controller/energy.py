@@ -3,6 +3,7 @@ from ctrlsolar.panels.abstract import Weather, Panel
 from ctrlsolar.battery.abstract import DCCoupledBattery
 from ctrlsolar.controller.abstract import Controller
 from ctrlsolar.mqtt.mqtt import get_mqtt
+from ctrlsolar.localization import get_timezone
 from ctrlsolar.mqtt.topics import (
     TOPICS,
     HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE,
@@ -19,12 +20,12 @@ class EnergyMonitor:
         self._battery = battery
         self._last_val_Wh: float = 0.0
         self._hour: int = 0
-        self._day = datetime.now().day  
+        self._day = datetime.now(get_timezone()).day  
         self._energy_tracker = dict(zip(range(24), 24*[0.]))
 
     def _reset_tracker(self):
-        day = datetime.now().day
-        hour = datetime.now().hour
+        day = datetime.now(get_timezone()).day
+        hour = datetime.now(get_timezone()).hour
         if day != self._day:
             self._energy_tracker = dict(zip(range(24), 24*[0.]))
             self._day = day
@@ -40,7 +41,7 @@ class EnergyMonitor:
 
     def update(self):
         self._reset_tracker()
-        hour = datetime.now().hour
+        hour = datetime.now(get_timezone()).hour
         energy = self._battery.energy_out
         delta = energy - self._last_val_Wh
 
@@ -55,7 +56,7 @@ class EnergyMonitor:
         mqtt = get_mqtt()
         mqtt.publish(
             HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
-            datetime.now().date().isoformat(),
+            datetime.now(get_timezone()).date().isoformat(),
         )
         mqtt.publish(
             HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
@@ -80,7 +81,7 @@ class EnergyForecast:
         return list(self._panels.predicted_production_by_hour(self._weather).values())
 
     def next_hour_production_estimate(self) -> float:
-        hour = datetime.now().hour
+        hour = datetime.now(get_timezone()).hour
         return self._panels.predicted_production_by_hour(self._weather)[hour]
 
     def daily_production_estimate(self) -> float:
@@ -88,12 +89,12 @@ class EnergyForecast:
         return p_dcs
 
     def remaining_energy_production_today(self, remaining_hours: int) -> float:
-        hour = datetime.now().hour
+        hour = datetime.now(get_timezone()).hour
         energy = sum(self.hourly_production_estimates()[hour : hour + remaining_hours])
         return energy
 
     def remaining_production_hours_today(self, cutoff_energy_kWh: float) -> int:
-        hour = datetime.now().hour
+        hour = datetime.now(get_timezone()).hour
         energy = self.hourly_production_estimates()[hour:]
         index = [x < cutoff_energy_kWh for x in energy].index(True)
         return index
@@ -106,7 +107,7 @@ class EnergyForecast:
         }
         mqtt.publish(
             HOURLY_FORECAST_STATE_TOPIC_TEMPLATE.format(device_id=self._device_id),
-            datetime.now().date().isoformat(),
+            datetime.now(get_timezone()).date().isoformat(),
         )
         mqtt.publish(
             HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE.format(device_id=self._device_id),
@@ -213,7 +214,7 @@ class EnergyController(Controller):
         mqtt = get_mqtt()
         mqtt.publish(
             HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
-            datetime.now().date().isoformat(),
+            datetime.now(get_timezone()).date().isoformat(),
         )
         mqtt.publish(
             HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE.format(device_id=self._battery.serial_number),
@@ -222,7 +223,7 @@ class EnergyController(Controller):
         return 
 
     def update(self):
-        hour = datetime.now().hour
+        hour = datetime.now(get_timezone()).hour
         self.evaluate_day_schedule()
 
         if hour in self._battery_hours:

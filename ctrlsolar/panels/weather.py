@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import logging
 from typing import TypedDict, cast
 from ctrlsolar.panels.abstract import Weather
+from ctrlsolar.localization import get_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -71,14 +72,14 @@ class OpenMeteoWeather(Weather):
         return df
 
     def get(self) -> pd.DataFrame:
-        today = datetime.now().today().strftime("%Y-%m-%d")
+        today = datetime.now(get_timezone()).today().strftime("%Y-%m-%d")
 
         if self._forecast is None or self._forecast_age is None:
             self._forecast = self._get_forecast(date=today)
-            self._forecast_age = datetime.now()
+            self._forecast_age = datetime.now(get_timezone())
 
-        if datetime.now() - self._forecast_age > self.update_every:
+        if datetime.now(get_timezone()) - self._forecast_age > self.update_every:
             self._forecast = self._get_forecast(date=today)
-            self._forecast_age = datetime.now()
+            self._forecast_age = datetime.now(get_timezone())
 
         return self._forecast

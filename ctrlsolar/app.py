@@ -3,6 +3,7 @@ import ctrlsolar.mqtt.topics as mqtt_topics
 from ctrlsolar.controller import EnergyController
 from ctrlsolar.battery import Noah2000
 from ctrlsolar.panels import OpenMeteoWeather, GenericPanel, PanelGroup
+from ctrlsolar.localization import set_timezone
 from ctrlsolar.config import Config
 import time
 import logging
@@ -18,6 +19,7 @@ def publish_ha_autodiscovery(mqtt: Mqtt, device_id: str) -> None:
 
 def run(config_file: str) -> None:
     config = Config.from_yaml(config_file)
+    set_timezone(config.timezone)
 
     mqtt = Mqtt(
         host=config.mqtt_host, 

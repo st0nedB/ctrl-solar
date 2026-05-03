@@ -2,17 +2,20 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Any
 
+
 class Sensor(ABC):
     def __init__(self, buffer_len: int = 1000):
         self._buffer = deque(buffer_len * [None], maxlen=buffer_len)
-    
+
+    @property
     @abstractmethod
-    def get(self) -> Any:
+    def value(self) -> Any:
         pass
-    
+
     @property
     def buffer(self) -> list[Any]:
         return list(self._buffer)
+
 
 class Consumer(ABC):
     @abstractmethod

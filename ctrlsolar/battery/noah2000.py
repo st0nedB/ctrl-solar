@@ -42,7 +42,7 @@ class Noah2000(DCCoupledBattery):
 
     @property
     def online(self) -> bool:
-        return self._online_sensor.get()
+        return self._online_sensor.value
 
     @property
     def capacity(self) -> int:
@@ -50,30 +50,30 @@ class Noah2000(DCCoupledBattery):
 
     @property
     def n_batteries(self) -> int:
-        n = self._n_batteries_sensor.get()
+        n = self._n_batteries_sensor.value
         if n is None:
             n = 1
         return n
     
     @property
     def energy_out(self) -> float:
-        return self._energy_out.get()
+        return self._energy_out.value
 
     @property
     def state_of_charge(self) -> float | None:
-        return self._soc_sensor.get()
+        return self._soc_sensor.value
     
     @property
     def discharge_limit(self) -> float | None:
-        return self._discharge_limit_sensor.get()
+        return self._discharge_limit_sensor.value
     
     @property
     def charge_limit(self) -> float | None:
-        return self._charge_limit_sensor.get()
+        return self._charge_limit_sensor.value
 
     @property
     def output_power(self) -> float | None:
-        return self._output_power_sensor.get()
+        return self._output_power_sensor.value
     
     @output_power.setter
     def output_power(self, power: int | float) -> None:
@@ -89,7 +89,7 @@ class Noah2000(DCCoupledBattery):
     
     @property
     def panel_power(self) -> float | None:
-        return self._panel_power_sensor.get()
+        return self._panel_power_sensor.value
     
     @property
     def energy_missing(self) -> float | None:

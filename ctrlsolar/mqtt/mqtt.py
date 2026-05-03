@@ -73,7 +73,8 @@ class MqttSensor(Sensor):
         self._buffer.append(payload)
         return
 
-    def get(self):
+    @property
+    def value(self):
         if not self._buffer:
             return None
 

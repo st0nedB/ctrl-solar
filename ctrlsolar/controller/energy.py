@@ -178,9 +178,10 @@ class EnergyController(Controller):
             next_hour_expected_Wh = self._forecast.next_hour_production_estimate()
 
             target_W = min(
-                (prod_remaining_Wh - missing_Wh) / prod_remaining_h,
-                self._p_max,
-                next_hour_expected_Wh / 1,  # /1h
+                (prod_remaining_Wh - missing_Wh) / prod_remaining_h,    # required to ensure batteryies are full
+                self._p_max,                                            # the max allowed
+                next_hour_expected_Wh / 1,  # /1h                       # the average of the current hour
+                self._battery.panel_power                               # the maximum available
             )
 
             target_W = int((target_W // 10) * 10)
@@ -250,6 +251,7 @@ class EnergyController(Controller):
         if self._battery.online:
             if target_W is not None:
                 logger.info(f"Updated maximum power to {target_W} W from {int(self._battery.output_power)} W.")  # type: ignore
+
                 self._battery.output_power = target_W
                 self.publish_set_power(target_W)
         else:

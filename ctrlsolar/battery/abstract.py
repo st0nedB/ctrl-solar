@@ -52,6 +52,11 @@ class DCCoupledBattery(ABC):
     def output_power(self) -> float | None:
         pass
 
+    @property
+    @abstractmethod
+    def panel_power(self) -> float | None:
+        pass
+
     @output_power.setter
     @abstractmethod
     def output_power(self, power: int | float) -> None:

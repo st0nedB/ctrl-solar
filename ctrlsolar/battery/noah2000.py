@@ -22,6 +22,7 @@ class Noah2000(DCCoupledBattery):
         charge_limit_sensor: Sensor, 
         output_power_sensor: Sensor,
         output_power_consumer: Consumer,
+        panel_power_sensor: Sensor,
         n_batteries_sensor: Sensor,
         energy_out_sensor: Sensor,
         *args: Any,
@@ -35,6 +36,7 @@ class Noah2000(DCCoupledBattery):
         self._charge_limit_sensor=charge_limit_sensor
         self._output_power_sensor = output_power_sensor
         self._output_power_consumer = output_power_consumer
+        self._panel_power_sensor = panel_power_sensor
         self._n_batteries_sensor = n_batteries_sensor
         self._energy_out = energy_out_sensor
 
@@ -86,6 +88,10 @@ class Noah2000(DCCoupledBattery):
         return self.state_of_charge * self.capacity
     
     @property
+    def panel_power(self) -> float | None:
+        return self._panel_power_sensor.get()
+    
+    @property
     def energy_missing(self) -> float | None:
         if self.energy_charged is None:
             return None 
@@ -128,6 +134,12 @@ class Noah2000(DCCoupledBattery):
         output_power_consumer = MqttConsumer(
             topic=f"homeassistant/number/grobro/{serial.upper()}/slot1_power/set"
         )
+        panel_power_sensor = MqttSensor(
+            topic=f"homeassistant/grobro/{serial.upper()}/state",
+            filter=[lambda y: (lambda x: float(x) if x is not None else None)(  # type: ignore
+                json.loads(y)["pv_tot_power"]  # type: ignore
+            )],
+        )
         n_battery_sensor = MqttSensor(
             topic=f"homeassistant/grobro/{serial.upper()}/state",
             filter=[lambda y: (  # type: ignore
@@ -154,6 +166,7 @@ class Noah2000(DCCoupledBattery):
             charge_limit_sensor=charge_limit_sensor,
             output_power_sensor=output_power_sensor,
             output_power_consumer=output_power_consumer,
+            panel_power_sensor=panel_power_sensor,
             n_batteries_sensor=n_battery_sensor,
             energy_out_sensor=energy_out_sensor,
         )

@@ -1,4 +1,6 @@
 from ctrlsolar.mqtt.mqtt import MqttSensor
+from typing import Type
+import json
 
 # Library for specific device implementations
 # List of devices:
@@ -18,6 +20,10 @@ class Shelly1PM_Energy(MqttSensor):
             ],
         )
 
+    @property
+    def energy_out(self) -> float | None:
+        return self.value
+
 
 class Shelly1PM_Power(MqttSensor):
     def __init__(self, topic: str):
@@ -29,3 +35,8 @@ class Shelly1PM_Power(MqttSensor):
                 )
             ],
         )
+
+MAPPINGS: dict[str, Type[MqttSensor]] = {
+    "Shelly1PM_Energy": Shelly1PM_Energy, 
+    "Shelly1PM_Power": Shelly1PM_Power,
+}

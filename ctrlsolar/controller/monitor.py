@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 class EnergyMonitor(Controller):
     def __init__(self, battery: DCCoupledBattery, sensor: Optional[Type[Sensor]]):
         self._deviceid = battery.serial_number
-        self._energy = sensor.value if sensor is not None else battery.energy_out
+        self._energy = sensor if sensor is not None else battery
         self._previous_energy = None
         self._hour: int = 0
         self._day = datetime.now(get_timezone()).day  
         self._energy_tracker = dict(zip(range(24), 24*[0.]))
         self._dcac_efficiency = dict(zip(range(24), 24*[0.]))
+
+        self._sensor = sensor
 
     def _reset_energy_tracker(self):
         day = datetime.now(get_timezone()).day
@@ -38,17 +40,18 @@ class EnergyMonitor(Controller):
 
         if self._previous_energy == None:
             # only called at init
-            self._previous_energy = self._energy
+            self._previous_energy = self._energy.energy_out
 
         return        
 
     def update(self):
         self._reset_energy_tracker()
-        if any_is_none(self._energy, self._previous_energy):
+        # TODO: Make a better abstraction for the sensor property
+        if any_is_none(self._energy.energy_out, self._previous_energy):  # type:ignore 
             logger.warning("Skipping update!")
             return 
         
-        energy = cast(float, self._energy)
+        energy = cast(float, self._energy.energy_out)
         previous_energy = cast(float, self._previous_energy) 
 
         hour = datetime.now(get_timezone()).hour
@@ -59,7 +62,7 @@ class EnergyMonitor(Controller):
         else:
             logger.info(f"Detected a delta={delta:.2f} Wh.")
             self._energy_tracker[hour] += delta
-            self._previous_energy = self._energy
+            self._previous_energy = energy
 
         self._publish()
         return

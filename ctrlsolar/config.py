@@ -1,7 +1,9 @@
-import yaml
 from dataclasses import dataclass, field
+from ctrlsolar.mqtt.mqtt import MqttSensor
+from ctrlsolar.mqtt.library import MAPPINGS
 import os
-from typing import Any, Optional, cast
+import yaml
+from typing import Any, Optional, Type, cast
 
 @dataclass
 class Config:
@@ -20,8 +22,11 @@ class Config:
     mqtt_username: str = field(default_factory=lambda: os.getenv("MQTT_USERNAME", ""))
     mqtt_password: str = field(default_factory=lambda: os.getenv("MQTT_PASSWORD", ""))
 
-    update_interval_s: int = 3600
+    update_interval_s: int = 300
     ha_autodiscovery: bool = False
+
+    energy_sensor: Optional[dict[str, Any]] = None
+    power_sensor: Optional[dict[str, Any]] = None
 
     @classmethod
     def from_yaml(cls, file_path: str):
@@ -38,6 +43,16 @@ class Config:
 
         panels = cast(list[dict[str, Any]], typed_raw_panels)
 
+        # load optionals
+        optional = cast(dict[str, Any], config.get("optional") or {})
+        energy_sensor = optional.get("energy_sensor", None)
+        if energy_sensor is not None:
+            energy_sensor["type"] = MAPPINGS[energy_sensor["type"]]
+        
+        power_sensor = optional.get("power_sensor", None)
+        if power_sensor is not None:
+            power_sensor["type"] = MAPPINGS[power_sensor["type"]]
+
         return cls(
             panels=panels,
             battery_sn=str(config.get("battery_sn")),
@@ -49,5 +64,7 @@ class Config:
             mqtt_host=str(config.get("host", cls.mqtt_host)),
             mqtt_port=int(config.get("port", cls.mqtt_port)),
             update_interval_s=int(config.get("update_interval_s", cls.update_interval_s)), 
-            ha_autodiscovery=bool(config.get("ha_autodiscovery", cls.ha_autodiscovery))
+            ha_autodiscovery=bool(config.get("ha_autodiscovery", cls.ha_autodiscovery)),
+            energy_sensor=energy_sensor,
+            power_sensor=power_sensor
         )

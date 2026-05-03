@@ -57,6 +57,16 @@ def run(config_file: str) -> None:
         timezone=config.timezone
     )
 
+    # optional: create sensor for energy measurements
+    energy_sensor = None
+    if config.energy_sensor is not None:
+        energy_sensor = config.energy_sensor["type"](config.energy_sensor["topic"])      
+
+    # TODO: For calibration, add later
+    # power_sensor = None
+    # if config.power_sensor is not None:
+    #     power_sensor = config.power_sensor["type"](config.power_sensor["topic"])
+
     # create the controllers
     controllers = [
         EnergyController(
@@ -65,6 +75,7 @@ def run(config_file: str) -> None:
             panels=panels,
             p_min=config.power_min,
             p_max=config.power_max,
+            energy_sensor=energy_sensor
         )
     ]
 

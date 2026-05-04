@@ -2,7 +2,8 @@
 
 This module defines standard topic formats used by the project and
 provides functions that generate Home Assistant discovery payloads
-for the `set_power`, `hourly_forecast`, and `hourly_production` sensors.
+for the `set_power`, `hourly_forecast`, `hourly_solar_production`,
+and `hourly_ac_production` sensors.
 
 """
 from typing import Any, cast
@@ -21,9 +22,11 @@ TOPICS: dict[str, str] = {
 HOURLY_FORECAST_STATE_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/state"
 HOURLY_FORECAST_ATTRIBUTES_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_forecast/attributes"
 
-# Hourly production topic templates (one HA sensor; hidden 24-hour payload)
-HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_production/state"
-HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_production/attributes"
+# Hourly production topic templates (one HA sensor per channel; hidden 24-hour payload)
+HOURLY_SOLAR_PRODUCTION_STATE_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_solar_production/state"
+HOURLY_SOLAR_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_solar_production/attributes"
+HOURLY_AC_PRODUCTION_STATE_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_ac_production/state"
+HOURLY_AC_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE: str = "ctrlsolar/{device_id}/hourly_ac_production/attributes"
 
 # Home Assistant discovery payload templates.
 # These payloads contain placeholders (`{device_id}`, `{device_name}`, `{discovery_prefix}`) which should be filled by the caller using `.format(...)`.
@@ -48,14 +51,32 @@ DISCOVERY: dict[str, dict[str, Any]] = {
             },
         },
     },
-    "hourly_production": {
+    "hourly_solar_production": {
         "component": "sensor",
-        "object_id": "hourly_production",
+        "object_id": "hourly_solar_production",
         "config": {
-            "name": "{device_name} Hourly Production",
-            "unique_id": "ctrlsolar_{device_id}_hourly_production",
-            "state_topic": HOURLY_PRODUCTION_STATE_TOPIC_TEMPLATE,
-            "json_attributes_topic": HOURLY_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE,
+            "name": "{device_name} Hourly Solar Production",
+            "unique_id": "ctrlsolar_{device_id}_hourly_solar_production",
+            "state_topic": HOURLY_SOLAR_PRODUCTION_STATE_TOPIC_TEMPLATE,
+            "json_attributes_topic": HOURLY_SOLAR_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE,
+            "device_class": "date",
+            "availability_topic": TOPICS["availability"],
+            "device": {
+                "identifiers": ["ctrlsolar_{device_id}"],
+                "name": "{device_name}",
+                "model": "ctrlsolar",
+                "manufacturer": "ctrlsolar",
+            },
+        },
+    },
+    "hourly_ac_production": {
+        "component": "sensor",
+        "object_id": "hourly_ac_production",
+        "config": {
+            "name": "{device_name} Hourly AC Production",
+            "unique_id": "ctrlsolar_{device_id}_hourly_ac_production",
+            "state_topic": HOURLY_AC_PRODUCTION_STATE_TOPIC_TEMPLATE,
+            "json_attributes_topic": HOURLY_AC_PRODUCTION_ATTRIBUTES_TOPIC_TEMPLATE,
             "device_class": "date",
             "availability_topic": TOPICS["availability"],
             "device": {
@@ -132,12 +153,14 @@ def discovery_items(
 ) -> list[tuple[str, dict[str, Any]]]:
     """Return topic/payload pairs for all discovery entries.
 
-    Includes set_power, hourly forecast, and hourly production sensors.
+    Includes set_power, hourly forecast, hourly solar production,
+    and hourly AC production sensors.
     """
     items = [
         discovery_item("set_power", device_id, device_name, discovery_prefix),
         discovery_item("hourly_forecast", device_id, device_name, discovery_prefix),
-        discovery_item("hourly_production", device_id, device_name, discovery_prefix),
+        discovery_item("hourly_solar_production", device_id, device_name, discovery_prefix),
+        discovery_item("hourly_ac_production", device_id, device_name, discovery_prefix),
     ]
     return items
 

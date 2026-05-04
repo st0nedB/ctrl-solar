@@ -36,7 +36,7 @@ class EnergyController(Controller):
         )
         self._monitor = EnergyMonitor(
             battery=battery, 
-            sensor=energy_sensor,
+            ac_sensor=energy_sensor,
         )
         self._p_min = p_min
         self._p_max = p_max

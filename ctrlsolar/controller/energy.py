@@ -64,40 +64,36 @@ class EnergyController(Controller):
         return
 
     def evaluate_production_power_target(self) -> int | None:
-        if any_is_none(self._battery.panel_power):
-            logger.warning("Skipping update!")
+        if any_is_none(self._battery.panel_power, self._battery.energy_missing):
+            logger.warning("Found `None` in sensors. Skipping update!")
             return
         
         panel_power = cast(float, self._battery.panel_power)
-        missing_Wh = self._battery.energy_missing
+        missing_Wh = cast(float, self._battery.energy_missing)
         target_W = None
-        if missing_Wh is not None:
-            prod_remaining_h = self._forecast.remaining_production_hours_today(
-                cutoff_energy_kWh=self._p_min * 1
-            )  # *1h
-            prod_remaining_Wh = self._forecast.remaining_energy_production_today(
-                remaining_hours=prod_remaining_h
-            )
-            next_hour_expected_Wh = self._forecast.next_hour_production_estimate()
 
-            target_W = min(
-                (prod_remaining_Wh - missing_Wh) / prod_remaining_h,    # required to ensure batteryies are full
-                self._p_max,                                            # the max allowed
-                next_hour_expected_Wh / 1,  # /1h                       # the average of the current hour
-                panel_power                                             # the maximum available
-            )
+        prod_remaining_h = self._forecast.remaining_production_hours_today(
+            cutoff_energy_kWh=self._p_min * 1
+        )  # *1h
+        prod_remaining_Wh = self._forecast.remaining_energy_production_today(
+            remaining_hours=prod_remaining_h
+        )
+        next_hour_expected_Wh = self._forecast.next_hour_production_estimate()
 
-            target_W = int((target_W // 10) * 10)
-        else:
-            logger.warning(
-                f"Missing information about battery charge state. Skipping!"
-            )
+        target_W = min(
+            (prod_remaining_Wh - missing_Wh) / prod_remaining_h,    # required to ensure batteryies are full
+            self._p_max,                                            # the max allowed
+            next_hour_expected_Wh / 1,  # /1h                       # the average of the current hour
+            panel_power                                             # the maximum available
+        )
+
+        target_W = int((target_W // 10) * 10)
 
         return target_W
 
     def evaluate_battery_power_target(self) -> int | None:
         if any_is_none(self._battery.energy_charged, self._battery.discharge_limit):
-            logger.warning("Skipping update!")
+            logger.warning("Found `None` in sensors. Skipping update!")
             return 
         
         energy_charged = cast(float, self._battery.energy_charged)
@@ -128,16 +124,16 @@ class EnergyController(Controller):
         self.evaluate_day_schedule()
 
         if hour in self._battery_hours:
-            target_W = self.evaluate_battery_power_target()
             logger.info(
-                f"Hour {hour}/24, which is battery mode. Power-target is evaluated to {target_W:.2f} W."
+                f"Hour {hour}/24, which is battery mode."
             )
+            target_W = self.evaluate_battery_power_target()
 
         elif hour in self._production_hours:
-            target_W = self.evaluate_production_power_target()
             logger.info(
-                f"Hour {hour}/24, which is production mode. Power-target is evaluated to {target_W:.2f} W."
+                f"Hour {hour}/24, which is production mode."
             )
+            target_W = self.evaluate_production_power_target()
 
         else:
             logger.warning(
@@ -147,7 +143,7 @@ class EnergyController(Controller):
 
         if self._battery.online:
             if target_W is not None:
-                logger.info(f"Updated maximum power to {target_W} W.")
+                logger.info(f"Power-target is evaluated to {target_W:.2f} W. Updated maximum power to {target_W} W.")
                 self._battery.output_power = target_W
                 self.publish_set_power(target_W)
         else:

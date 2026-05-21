@@ -150,7 +150,7 @@ class EnergyController(Controller):
 
         if self._battery.online:
             if target_W is not None:
-                target_W = int(max(target_W, 0))
+                target_W = int(max(target_W, self._p_min))
                 logger.info(f"Power-target is evaluated to {target_W:.2f} W. Updated maximum power to {target_W} W.")
                 print(target_W)
                 self._battery.output_power = target_W

@@ -75,6 +75,12 @@ class EnergyController(Controller):
         prod_remaining_h = self._forecast.remaining_production_hours_today(
             cutoff_energy_kWh=self._p_min * 1
         )  # *1h
+        if prod_remaining_h == 0:
+            prod_remaining_h = 1
+        if prod_remaining_h < 0:
+            logger.info("Production has already seized. Skipping.")
+            return 
+
         prod_remaining_Wh = self._forecast.remaining_energy_production_today(
             remaining_hours=prod_remaining_h
         )
@@ -108,6 +114,7 @@ class EnergyController(Controller):
         logger.info(
             f"Maxmimum sustainable discharge power until next production period is {target_W:.2f} W."
         )
+        
         target_W = max(target_W, self._p_min)
         logger.info(f"Evaluated power result is {target_W:.2f} W.")
         target_W = int((target_W // 10) * 10)
@@ -143,7 +150,9 @@ class EnergyController(Controller):
 
         if self._battery.online:
             if target_W is not None:
+                target_W = int(max(target_W, 0))
                 logger.info(f"Power-target is evaluated to {target_W:.2f} W. Updated maximum power to {target_W} W.")
+                print(target_W)
                 self._battery.output_power = target_W
                 self.publish_set_power(target_W)
         else:

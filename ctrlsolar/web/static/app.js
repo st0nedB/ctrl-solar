@@ -43,9 +43,9 @@ async function live() {
   ].join("");
 
   chart.setOption(hourlyOption("Live", [
-    { name: "Forecast", type: "bar", data: forecast.hourly_wh || [] },
-    { name: "Raw forecast", type: "line", smooth: true, data: forecast.raw_hourly_wh || [] },
-    { name: "Actual solar", type: "bar", data: Object.values(actuals.solar_hourly_wh || {}) },
+    forecastLine("Forecast", forecast.hourly_wh || []),
+    forecastLine("Raw forecast", forecast.raw_hourly_wh || []),
+    actualLine("Actual solar", Object.values(actuals.solar_hourly_wh || {})),
   ]), true);
 }
 
@@ -62,10 +62,10 @@ async function day() {
   ].join("");
 
   chart.setOption(hourlyOption("Today", [
-    { name: "Forecast", type: "bar", data: forecast.map((row) => row.calibrated_wh) },
-    { name: "Raw forecast", type: "line", smooth: true, data: forecast.map((row) => row.predicted_wh) },
-    { name: "Actual solar", type: "bar", data: data.solar_hourly_wh || [] },
-    { name: "Actual AC", type: "line", smooth: true, data: data.ac_hourly_wh || [] },
+    forecastLine("Forecast", forecast.map((row) => row.calibrated_wh)),
+    forecastLine("Raw forecast", forecast.map((row) => row.predicted_wh)),
+    actualLine("Actual solar", data.solar_hourly_wh || []),
+    actualLine("Actual AC", data.ac_hourly_wh || []),
   ]), true);
 }
 
@@ -82,15 +82,16 @@ async function history() {
 
   chart.setOption({
     tooltip: { trigger: "axis" },
-    legend: {},
+    legend: legendOption(),
     xAxis: { type: "category", data: rows.map((row) => row.date) },
     yAxis: { type: "value", name: "Wh" },
     series: [
-      { name: "Forecast", type: "bar", data: rows.map((row) => row.forecast_wh) },
-      { name: "Actual solar", type: "bar", data: rows.map((row) => row.actual_wh) },
+      forecastLine("Forecast", rows.map((row) => row.forecast_wh)),
+      actualLine("Actual solar", rows.map((row) => row.actual_wh)),
       { name: "Error %", type: "line", smooth: true, data: rows.map((row) => row.error_percent) },
     ],
-    title: { text: "30 Day History", left: "center" },
+    title: titleOption("30 Day History"),
+    grid: chartGrid(),
   }, true);
 }
 
@@ -105,19 +106,60 @@ async function calibration() {
   ].join("");
 
   chart.setOption(hourlyOption("Calibration Factors", [
-    { name: "Factor", type: "bar", data: factors },
+    markerLine("Factor", factors),
   ], "factor"), true);
 }
 
 function hourlyOption(title, series, yName = "Wh") {
   return {
     tooltip: { trigger: "axis" },
-    legend: {},
+    legend: legendOption(),
     xAxis: { type: "category", data: hours },
     yAxis: { type: "value", name: yName },
     series,
-    title: { text: title, left: "center" },
+    title: titleOption(title),
+    grid: chartGrid(),
   };
+}
+
+function forecastLine(name, data) {
+  return {
+    name,
+    type: "line",
+    smooth: true,
+    showSymbol: false,
+    data,
+  };
+}
+
+function actualLine(name, data) {
+  return {
+    ...forecastLine(name, data),
+    areaStyle: { opacity: 0.22 },
+  };
+}
+
+function markerLine(name, data) {
+  return {
+    name,
+    type: "line",
+    symbol: "circle",
+    symbolSize: 9,
+    lineStyle: { width: 3 },
+    data,
+  };
+}
+
+function titleOption(text) {
+  return { text, left: "center", top: 0 };
+}
+
+function legendOption() {
+  return { top: 40 };
+}
+
+function chartGrid() {
+  return { top: 96, left: 54, right: 28, bottom: 44 };
 }
 
 function sum(values) {

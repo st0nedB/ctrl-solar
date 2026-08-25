@@ -43,6 +43,10 @@ class EnergyController(Controller):
 
         self._battery_hours = []
         self._production_hours = []
+        self._last_phase = None
+        self._last_target_power = None
+        self._last_updated_at = None
+        self._last_error = None
 
         return
     
@@ -127,36 +131,86 @@ class EnergyController(Controller):
         return 
 
     def update(self):
-        hour = datetime.now(get_timezone()).hour
-        self.evaluate_day_schedule()
+        self._last_error = None
+        try:
+            hour = datetime.now(get_timezone()).hour
+            self.evaluate_day_schedule()
 
-        if hour in self._battery_hours:
-            logger.info(
-                f"Hour {hour}/24, which is battery mode."
-            )
-            target_W = self.evaluate_battery_power_target()
+            if hour in self._battery_hours:
+                logger.info(
+                    f"Hour {hour}/24, which is battery mode."
+                )
+                self._last_phase = "battery"
+                target_W = self.evaluate_battery_power_target()
 
-        elif hour in self._production_hours:
-            logger.info(
-                f"Hour {hour}/24, which is production mode."
-            )
-            target_W = self.evaluate_production_power_target()
+            elif hour in self._production_hours:
+                logger.info(
+                    f"Hour {hour}/24, which is production mode."
+                )
+                self._last_phase = "production"
+                target_W = self.evaluate_production_power_target()
 
-        else:
-            logger.warning(
-                f"Failed to determine Phase. Setting fallback power of {self._fallback:.2f} W."
-            )
-            target_W = self._fallback
+            else:
+                logger.warning(
+                    f"Failed to determine Phase. Setting fallback power of {self._fallback:.2f} W."
+                )
+                self._last_phase = "fallback"
+                target_W = self._fallback
 
-        if self._battery.online:
-            if target_W is not None:
-                target_W = int(max(target_W, self._p_min))
-                logger.info(f"Power-target is evaluated to {target_W:.2f} W. Updated maximum power to {target_W} W.")
-                print(target_W)
-                self._battery.output_power = target_W
-                self.publish_set_power(target_W)
-        else:
-            logger.info(f"Battery is offline! Skipping update.")
+            self._last_target_power = target_W
 
-        self._update_subs()
+            if self._battery.online:
+                if target_W is not None:
+                    target_W = int(max(target_W, self._p_min))
+                    self._last_target_power = target_W
+                    logger.info(f"Power-target is evaluated to {target_W:.2f} W. Updated maximum power to {target_W} W.")
+                    print(target_W)
+                    self._battery.output_power = target_W
+                    self.publish_set_power(target_W)
+            else:
+                logger.info(f"Battery is offline! Skipping update.")
+
+            self._update_subs()
+        except Exception as exc:
+            self._last_error = str(exc)
+            raise
+        finally:
+            self._last_updated_at = datetime.now(get_timezone()).isoformat(timespec="seconds")
+
         return
+
+    def snapshot(self) -> dict:
+        return {
+            "timestamp": datetime.now(get_timezone()).isoformat(timespec="seconds"),
+            "controller": {
+                "phase": self._last_phase,
+                "last_target_power_w": self._last_target_power,
+                "last_updated_at": self._last_updated_at,
+                "last_error": self._last_error,
+            },
+            "battery": {
+                "serial_number": self._battery.serial_number,
+                "online": self._read(lambda: self._battery.online),
+                "state_of_charge": self._read(lambda: self._battery.state_of_charge),
+                "output_power_w": self._read(lambda: self._battery.output_power),
+                "panel_power_w": self._read(lambda: self._battery.panel_power),
+                "energy_charged_wh": self._read(lambda: self._battery.energy_charged),
+                "energy_missing_wh": self._read(lambda: self._battery.energy_missing),
+                "capacity_wh": self._read(lambda: self._battery.capacity),
+                "n_batteries": self._read(lambda: self._battery.n_batteries),
+                "charge_limit": self._read(lambda: self._battery.charge_limit),
+                "discharge_limit": self._read(lambda: self._battery.discharge_limit),
+                "energy_out_wh": self._read(lambda: self._battery.energy_out),
+            },
+            "forecast": self._read(self._forecast.snapshot),
+            "actuals": self._read(self._monitor.snapshot),
+        }
+
+    def _read(self, getter):
+        try:
+            return getter()
+        except Exception:
+            return None
+
+    def set_calibration(self, factors: list[float]) -> None:
+        self._forecast.set_calibration(factors)

@@ -38,3 +38,9 @@ Set broker and runtime-specific values here, especially:
 - `panels`
 
 Keep secrets in `.env`, not in `config.yaml`.
+
+The dashboard is disabled by default in `config.yaml`. If enabled, expose it only on trusted networks or behind a reverse proxy.
+
+History uses SQLite and is disabled by default. Enable `history.enabled` to store runtime snapshots for dashboard history.
+
+Calibration learns hourly forecast factors from stored history. Enable `calibration.enabled` to learn factors, and set `calibration.apply: true` only when you want learned factors applied to future forecasts.

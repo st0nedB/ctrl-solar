@@ -1,23 +1,41 @@
 # MQTT, username and password are in .env!
-host: homeassistant.local
+host: mqtt.emptyvoid.xyz
 port: 1883
 
 latitude: 42.46903090913205
 longitude: -71.35063628495487
 timezone: America/New_York
 
-battery_sn: <Growatt Battery Serial>
-update_interval_s: 600
+battery_sn: 0PVPH6ZR23QT00D9
+update_interval_s: 300
 ha_autodiscovery: False
+
+optional:
+  energy_sensor:
+    type: Shelly1PM_Energy
+    topic: shelly1pmminig3-3030f9e50688
+
+dashboard:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+
+history:
+  enabled: true
+  path: data/history.sqlite
+  sample_interval_s: 600
+
+calibration:
+  enabled: true
+  apply: false
+  minimum_days: 7
+  factor_min: 0.5
+  factor_max: 1.5
 
 panels:
   - tilt: 45
     azimuth: 180
     area: 1.9981
-    efficiency: 0.22       
-  - tilt: 45
-    azimuth: 180
-    area: 1.9981
     efficiency: 0.22
   - tilt: 45
     azimuth: 180
@@ -26,4 +44,8 @@ panels:
   - tilt: 45
     azimuth: 180
     area: 1.9981
-    efficiency: 0.22        
+    efficiency: 0.22
+  - tilt: 45
+    azimuth: 180
+    area: 1.9981
+    efficiency: 0.22

@@ -24,6 +24,17 @@ class Config:
 
     update_interval_s: int = 300
     ha_autodiscovery: bool = False
+    dashboard_enabled: bool = False
+    dashboard_host: str = "0.0.0.0"
+    dashboard_port: int = 8080
+    history_enabled: bool = False
+    history_path: str = "data/history.sqlite"
+    history_sample_interval_s: Optional[int] = None
+    calibration_enabled: bool = False
+    calibration_apply: bool = False
+    calibration_minimum_days: int = 7
+    calibration_factor_min: float = 0.5
+    calibration_factor_max: float = 1.5
 
     energy_sensor: Optional[dict[str, Any]] = None
     power_sensor: Optional[dict[str, Any]] = None
@@ -53,6 +64,10 @@ class Config:
         if power_sensor is not None:
             power_sensor["type"] = MAPPINGS[power_sensor["type"]]
 
+        dashboard = cast(dict[str, Any], config.get("dashboard") or {})
+        history = cast(dict[str, Any], config.get("history") or {})
+        calibration = cast(dict[str, Any], config.get("calibration") or {})
+
         return cls(
             panels=panels,
             battery_sn=str(config.get("battery_sn")),
@@ -65,6 +80,19 @@ class Config:
             mqtt_port=int(config.get("port", cls.mqtt_port)),
             update_interval_s=int(config.get("update_interval_s", cls.update_interval_s)), 
             ha_autodiscovery=bool(config.get("ha_autodiscovery", cls.ha_autodiscovery)),
+            dashboard_enabled=bool(dashboard.get("enabled", cls.dashboard_enabled)),
+            dashboard_host=str(dashboard.get("host", cls.dashboard_host)),
+            dashboard_port=int(dashboard.get("port", cls.dashboard_port)),
+            history_enabled=bool(history.get("enabled", cls.history_enabled)),
+            history_path=str(history.get("path", cls.history_path)),
+            history_sample_interval_s=(
+                int(history["sample_interval_s"]) if history.get("sample_interval_s") else None
+            ),
+            calibration_enabled=bool(calibration.get("enabled", cls.calibration_enabled)),
+            calibration_apply=bool(calibration.get("apply", cls.calibration_apply)),
+            calibration_minimum_days=int(calibration.get("minimum_days", cls.calibration_minimum_days)),
+            calibration_factor_min=float(calibration.get("factor_min", cls.calibration_factor_min)),
+            calibration_factor_max=float(calibration.get("factor_max", cls.calibration_factor_max)),
             energy_sensor=energy_sensor,
             power_sensor=power_sensor
         )

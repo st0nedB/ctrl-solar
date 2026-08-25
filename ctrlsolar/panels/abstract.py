@@ -9,5 +9,5 @@ class Weather(ABC):
 
 class Panel(ABC):
     @abstractmethod
-    def predicted_production_by_hour(self, weather: Weather) -> dict[int, float]:
+    def predicted_production_by_hour(self, weather: Weather, calibrated: bool = True) -> dict[int, float]:
         pass

@@ -5,3 +5,8 @@ example/devconf.yaml
 launch.json
 .venv
 *.egg-info
+data/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*

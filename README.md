@@ -53,6 +53,31 @@ For setup values, environment variables, and config keys, use:
 - `example/README.md`
 - `example/config.yaml`
 
+The optional dashboard is disabled by default. Enable it with:
+
+```yaml
+dashboard:
+  enabled: true
+  host: 0.0.0.0
+  port: 8080
+```
+
+It has no authentication. Expose it only on trusted networks or behind a reverse proxy.
+
+History and calibration are also opt-in. When enabled, runtime snapshots are stored in SQLite and the dashboard can compare forecasted production against actual solar production:
+
+```yaml
+history:
+  enabled: true
+  path: data/history.sqlite
+  sample_interval_s: 600
+
+calibration:
+  enabled: true
+  apply: false
+  minimum_days: 7
+```
+
 ## Run
 
 Local:

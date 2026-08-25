@@ -22,6 +22,14 @@ class EnergyForecast(Controller):
     def hourly_production_estimates(self) -> list[float,]:
         return list(self._panels.predicted_production_by_hour(self._weather).values())
 
+    def raw_hourly_production_estimates(self) -> list[float,]:
+        return list(
+            self._panels.predicted_production_by_hour(
+                self._weather,
+                calibrated=False,
+            ).values()
+        )
+
     def next_hour_production_estimate(self) -> float:
         hour = datetime.now(get_timezone()).hour
         return self._panels.predicted_production_by_hour(self._weather)[hour]
@@ -56,6 +64,19 @@ class EnergyForecast(Controller):
             energy,
         )
         return
+
+    def snapshot(self) -> dict:
+        hourly = self.hourly_production_estimates()
+        return {
+            "hour": datetime.now(get_timezone()).hour,
+            "hourly_wh": hourly,
+            "raw_hourly_wh": self.raw_hourly_production_estimates(),
+            "daily_wh": sum(hourly),
+            "next_hour_wh": self.next_hour_production_estimate(),
+        }
+
+    def set_calibration(self, factors: list[float]) -> None:
+        self._panels.set_calibration(factors)
     
     def update(self):
         _ = self.hourly_production_estimates()

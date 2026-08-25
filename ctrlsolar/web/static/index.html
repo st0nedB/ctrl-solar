@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ctrl-solar</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>ctrl-solar</h1>
+    <nav>
+      <button data-view="live">Live</button>
+      <button data-view="today">Today</button>
+      <button data-view="history">History</button>
+      <button data-view="calibration">Calibration</button>
+    </nav>
+  </header>
+  <main>
+    <section>
+      <div id="summary"></div>
+      <div id="chart"></div>
+    </section>
+  </main>
+  <script src="/echarts.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

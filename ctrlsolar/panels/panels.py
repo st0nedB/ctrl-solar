@@ -29,7 +29,12 @@ class GenericPanel(Panel):
         self.efficiency = efficiency
         self.calibration = calibration if calibration is not None else 24 * [1]
 
-    def predicted_production_by_hour(self, weather: Weather) -> dict[int, float]:
+    def set_calibration(self, factors: list[float]) -> None:
+        if len(factors) != 24:
+            raise ValueError("Calibration requires 24 hourly factors.")
+        self.calibration = factors
+
+    def predicted_production_by_hour(self, weather: Weather, calibrated: bool = True) -> dict[int, float]:
         weather_today = weather.get()
         poa = get_total_irradiance( # type: ignore
             surface_tilt=self.tilt,
@@ -41,7 +46,8 @@ class GenericPanel(Panel):
             dhi=weather_today["DHI"],
         )
         energy = poa["poa_global"] * self.area * self.efficiency    # type: ignore # in Wh
-        energy = self.calibration * energy                          # type: ignore
+        if calibrated:
+            energy = energy * self.calibration                      # type: ignore
         energy = [float(x) for x in energy.tolist()]                # type: ignore
         energy_by_hour = dict(zip(range(24), energy))
 
@@ -51,11 +57,17 @@ class PanelGroup(Panel):
     def __init__(self, panels: Sequence[Panel,]):
         self._panels = panels
 
-    def predicted_production_by_hour(self, weather: Weather) -> dict[int, float]:
-        energy = [list(x.predicted_production_by_hour(weather).values()) for x in self._panels]
+    def set_calibration(self, factors: list[float]) -> None:
+        for panel in self._panels:
+            if hasattr(panel, "set_calibration"):
+                panel.set_calibration(factors)
+
+    def predicted_production_by_hour(self, weather: Weather, calibrated: bool = True) -> dict[int, float]:
+        energy = [
+            list(x.predicted_production_by_hour(weather, calibrated=calibrated).values())
+            for x in self._panels
+        ]
         energy = np.sum(np.column_stack(energy), axis=-1, keepdims=False).tolist()
         energy_by_hour = dict(zip(range(24), energy))
 
         return energy_by_hour
-
-        

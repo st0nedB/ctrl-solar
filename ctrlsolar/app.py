@@ -5,9 +5,10 @@ from ctrlsolar.battery import Noah2000
 from ctrlsolar.panels import OpenMeteoWeather, GenericPanel, PanelGroup
 from ctrlsolar.localization import set_timezone
 from ctrlsolar.config import Config
+from ctrlsolar.history import HistoryStore
+from ctrlsolar.web import DashboardServer
 import time
 import logging
-import argparse
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +79,31 @@ def run(config_file: str) -> None:
             energy_sensor=energy_sensor
         )
     ]
+    history = None
+    if config.history_enabled or config.calibration_enabled:
+        history = HistoryStore(config.history_path)
+        if config.calibration_apply:
+            factors = history.calibration().get("factors")
+            if factors is not None:
+                controllers[0].set_calibration(factors)
+
+    dashboard = None
+    if config.dashboard_enabled:
+        dashboard = DashboardServer(
+            controller=controllers[0],
+            host=config.dashboard_host,
+            port=config.dashboard_port,
+            history_store=history,
+        )
+        dashboard.start()
 
     if config.ha_autodiscovery:
         publish_ha_autodiscovery(mqtt, battery.serial_number)    
 
     # run in loop
     try:
+        last_sample_at = 0.0
+        last_calibration_day = None
         time.sleep(30)
         while True:
             for cc in controllers:
@@ -92,21 +112,40 @@ def run(config_file: str) -> None:
                 logger.info(info)
                 logger.info(len(info) * "-")
                 cc.update()
+                now = time.monotonic()
+                snapshot = None
+                sample_interval = config.history_sample_interval_s or config.update_interval_s
+                if history is not None and now - last_sample_at >= sample_interval:
+                    snapshot = cc.snapshot()
+                    history.insert_snapshot(snapshot)
+                    last_sample_at = now
+                if config.calibration_enabled and history is not None:
+                    snapshot = snapshot or cc.snapshot()
+                    today = snapshot["timestamp"][:10]
+                else:
+                    today = None
+                if today is not None and today != last_calibration_day:
+                    factors = history.learn_calibration(
+                        minimum_days=config.calibration_minimum_days,
+                        factor_min=config.calibration_factor_min,
+                        factor_max=config.calibration_factor_max,
+                    )
+                    if factors is not None and config.calibration_apply:
+                        cc.set_calibration(factors)
+                    last_calibration_day = today
 
             time.sleep(config.update_interval_s)
 
     except KeyboardInterrupt:
         pass
+    finally:
+        if dashboard is not None:
+            dashboard.stop()
+        mqtt.disconnect()
 
     return
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(description="Run the ctrlsolar app")
-    parser.add_argument(
-        "--config-file",
-        default="example/config.yaml",
-        help="Path to YAML config file",
-    )
-    args = parser.parse_args()
-    run(config_file=args.config_file)
+    from ctrlsolar.cli import main
+
+    raise SystemExit(main())

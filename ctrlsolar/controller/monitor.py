@@ -123,3 +123,9 @@ class EnergyMonitor(Controller):
             )
 
         return
+
+    def snapshot(self) -> dict:
+        return {
+            "solar_hourly_wh": self._solar_energy_tracker,
+            "ac_hourly_wh": self._ac_energy_tracker if self._ac_energy is not None else None,
+        }

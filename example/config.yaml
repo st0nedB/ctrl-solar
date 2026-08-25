@@ -1,5 +1,5 @@
 # MQTT, username and password are in .env!
-host: mqtt.emptyvoid.xyz
+host: host.mqtt.com
 port: 1883
 
 latitude: 42.46903090913205

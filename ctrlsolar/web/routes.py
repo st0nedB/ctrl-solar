@@ -56,9 +56,22 @@ def _int_param(params: dict, name: str, default: int) -> int:
 
 def _empty_history(path: str) -> dict:
     if path == "/api/history/day":
-        return {"date": None, "samples": [], "forecast": [], "solar_hourly_wh": [], "ac_hourly_wh": []}
+        return {
+            "date": None,
+            "samples": [],
+            "forecast": [],
+            "solar_hourly_wh": [],
+            "ac_hourly_wh": [],
+            "quality_spans": [],
+        }
     if path == "/api/history/range":
         return {"days": []}
     if path == "/api/calibration":
-        return {"factors": None, "status": "disabled", "valid_day_count": 0}
+        return {
+            "factors": None,
+            "status": "disabled",
+            "valid_day_count": 0,
+            "ignored_invalid_samples": 0,
+            "ignored_invalid_days": 0,
+        }
     raise ApiError("Unknown API route.", 404)

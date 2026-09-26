@@ -13,6 +13,7 @@ class HistoryStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
+        self.detect_quality_issues()
 
     def connect(self):
         connection = sqlite3.connect(self.path)
@@ -41,10 +42,16 @@ class HistoryStore:
                     energy_out_wh REAL,
                     solar_actual_wh REAL,
                     ac_actual_wh REAL,
-                    error TEXT
+                    error TEXT,
+                    quality_status TEXT NOT NULL DEFAULT 'valid',
+                    quality_reason TEXT,
+                    quality_span_id TEXT
                 )
                 """
             )
+            self._add_column(db, "samples", "quality_status", "TEXT NOT NULL DEFAULT 'valid'")
+            self._add_column(db, "samples", "quality_reason", "TEXT")
+            self._add_column(db, "samples", "quality_span_id", "TEXT")
             db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS forecasts (
@@ -76,6 +83,19 @@ class HistoryStore:
                 )
                 """
             )
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS quality_spans (
+                    id TEXT PRIMARY KEY,
+                    local_date TEXT NOT NULL,
+                    start_timestamp TEXT NOT NULL,
+                    end_timestamp TEXT NOT NULL,
+                    reason TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    sample_count INTEGER NOT NULL
+                )
+                """
+            )
 
     def insert_snapshot(self, snapshot: dict[str, Any]) -> None:
         timestamp = snapshot["timestamp"]
@@ -90,7 +110,25 @@ class HistoryStore:
         with self.connect() as db:
             db.execute(
                 """
-                INSERT OR REPLACE INTO samples VALUES (
+                INSERT OR REPLACE INTO samples (
+                    timestamp,
+                    local_date,
+                    hour,
+                    serial,
+                    phase,
+                    target_power_w,
+                    online,
+                    soc,
+                    output_power_w,
+                    panel_power_w,
+                    energy_charged_wh,
+                    energy_missing_wh,
+                    capacity_wh,
+                    energy_out_wh,
+                    solar_actual_wh,
+                    ac_actual_wh,
+                    error
+                ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
@@ -123,6 +161,7 @@ class HistoryStore:
                     for hour in range(24)
                 ],
             )
+        self.detect_quality_issues()
 
     def live(self, limit: int = 96) -> dict[str, Any]:
         with self.connect() as db:
@@ -143,6 +182,10 @@ class HistoryStore:
                 "SELECT hour, predicted_wh, calibrated_wh FROM forecasts WHERE local_date = ? ORDER BY hour",
                 (day,),
             ).fetchall()
+            spans = db.execute(
+                "SELECT * FROM quality_spans WHERE local_date = ? ORDER BY start_timestamp",
+                (day,),
+            ).fetchall()
 
         return {
             "date": day,
@@ -150,6 +193,7 @@ class HistoryStore:
             "forecast": [dict(row) for row in forecasts],
             "solar_hourly_wh": _hourly_actual(samples, "solar_actual_wh"),
             "ac_hourly_wh": _hourly_actual(samples, "ac_actual_wh"),
+            "quality_spans": [dict(row) for row in spans],
         }
 
     def range(self, days: int = 30) -> dict[str, Any]:
@@ -157,6 +201,17 @@ class HistoryStore:
             start_day = (date.today() - timedelta(days=max(days, 1) - 1)).isoformat()
             sample_rows = db.execute(
                 "SELECT * FROM samples WHERE local_date >= ? ORDER BY local_date",
+                (start_day,),
+            ).fetchall()
+            quality_rows = db.execute(
+                """
+                SELECT local_date,
+                       COUNT(*) AS invalid_sample_count,
+                       GROUP_CONCAT(DISTINCT quality_reason) AS quality_reasons
+                FROM samples
+                WHERE local_date >= ? AND quality_status = 'invalid'
+                GROUP BY local_date
+                """,
                 (start_day,),
             ).fetchall()
             forecast_rows = db.execute(
@@ -172,6 +227,7 @@ class HistoryStore:
         forecast_by_day = {
             row["local_date"]: row["forecast_wh"] for row in forecast_rows
         }
+        quality_by_day = {row["local_date"]: dict(row) for row in quality_rows}
         actual_by_day = _daily_actual(sample_rows, "solar_actual_wh")
         dates = sorted(set(forecast_by_day) | set(actual_by_day))[-days:]
         return {
@@ -181,6 +237,12 @@ class HistoryStore:
                         "date": day,
                         "forecast_wh": forecast_by_day.get(day),
                         "actual_wh": actual_by_day.get(day),
+                        "invalid_sample_count": quality_by_day.get(day, {}).get(
+                            "invalid_sample_count", 0
+                        ),
+                        "quality_reasons": _csv_values(
+                            quality_by_day.get(day, {}).get("quality_reasons")
+                        ),
                     }
                 )
                 for day in dates
@@ -195,6 +257,7 @@ class HistoryStore:
             run = db.execute(
                 "SELECT * FROM calibration_runs ORDER BY learned_at DESC LIMIT 1"
             ).fetchone()
+            ignored = self._quality_summary(db)
         return {
             "factors": [row["factor"] for row in factors] if len(factors) == 24 else None,
             "learned_at": factors[0]["learned_at"] if factors else None,
@@ -205,6 +268,7 @@ class HistoryStore:
             ),
             "status": run["status"] if run else "not_learned",
             "message": run["message"] if run else None,
+            **ignored,
         }
 
     def learn_calibration(
@@ -215,10 +279,14 @@ class HistoryStore:
     ) -> list[float] | None:
         rows = self._training_rows()
         valid_days = {row["local_date"] for row in rows}
+        ignored = self.quality_summary()
         learned_at = datetime.now().isoformat(timespec="seconds")
         if len(valid_days) < minimum_days:
             self._save_calibration_run(
-                learned_at, "insufficient_data", len(valid_days), f"Need {minimum_days} valid days."
+                learned_at,
+                "insufficient_data",
+                len(valid_days),
+                _calibration_message(minimum_days, ignored),
             )
             return None
 
@@ -236,7 +304,7 @@ class HistoryStore:
                 "INSERT OR REPLACE INTO calibration_factors VALUES (?, ?, ?, ?)",
                 [(hour, factors[hour], learned_at, len(valid_days)) for hour in range(24)],
             )
-        self._save_calibration_run(learned_at, "learned", len(valid_days), None)
+        self._save_calibration_run(learned_at, "learned", len(valid_days), _ignored_message(ignored))
         return factors
 
     def _training_rows(self) -> list[sqlite3.Row]:
@@ -246,10 +314,75 @@ class HistoryStore:
                 SELECT f.local_date, f.hour, f.predicted_wh, MAX(s.solar_actual_wh) AS actual_wh
                 FROM forecasts f
                 JOIN samples s ON s.local_date = f.local_date AND s.hour = f.hour
+                WHERE s.quality_status = 'valid'
                 GROUP BY f.local_date, f.hour
                 HAVING actual_wh IS NOT NULL
                 """
             ).fetchall()
+
+    def quality_summary(self) -> dict[str, int]:
+        with self.connect() as db:
+            return self._quality_summary(db)
+
+    def detect_quality_issues(self) -> None:
+        with self.connect() as db:
+            rows = db.execute("SELECT * FROM samples ORDER BY timestamp").fetchall()
+            spans = _missing_telemetry_spans(rows) + _stale_telemetry_spans(rows)
+            db.execute(
+                """
+                UPDATE samples
+                SET quality_status = 'valid',
+                    quality_reason = NULL,
+                    quality_span_id = NULL
+                """
+            )
+            db.execute("DELETE FROM quality_spans")
+            for span in spans:
+                self._save_quality_span(db, span)
+
+    def _save_quality_span(self, db, span: dict[str, Any]) -> None:
+        row_ids = [row["timestamp"] for row in span["rows"]]
+        db.execute(
+            "INSERT OR REPLACE INTO quality_spans VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                span["id"],
+                span["local_date"],
+                span["start_timestamp"],
+                span["end_timestamp"],
+                span["reason"],
+                span["message"],
+                len(row_ids),
+            ),
+        )
+        db.executemany(
+            """
+            UPDATE samples
+            SET quality_status = 'invalid',
+                quality_reason = ?,
+                quality_span_id = ?
+            WHERE timestamp = ?
+            """,
+            [(span["reason"], span["id"], timestamp) for timestamp in row_ids],
+        )
+
+    def _quality_summary(self, db) -> dict[str, int]:
+        row = db.execute(
+            """
+            SELECT COUNT(*) AS ignored_invalid_samples,
+                   COUNT(DISTINCT local_date) AS ignored_invalid_days
+            FROM samples
+            WHERE quality_status = 'invalid'
+            """
+        ).fetchone()
+        return {
+            "ignored_invalid_samples": row["ignored_invalid_samples"] or 0,
+            "ignored_invalid_days": row["ignored_invalid_days"] or 0,
+        }
+
+    def _add_column(self, db, table: str, name: str, definition: str) -> None:
+        columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
+        if name not in columns:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
 
     def _save_calibration_run(
         self, learned_at: str, status: str, valid_day_count: int, message: str | None
@@ -263,6 +396,135 @@ class HistoryStore:
 
 def _parse_date(value: str) -> None:
     date.fromisoformat(value)
+
+
+MISSING_FIELDS = (
+    "target_power_w",
+    "online",
+    "soc",
+    "output_power_w",
+    "panel_power_w",
+    "energy_out_wh",
+)
+FROZEN_FIELDS = ("output_power_w", "panel_power_w", "soc", "energy_out_wh")
+
+
+def _missing_telemetry_spans(rows) -> list[dict[str, Any]]:
+    spans = []
+    current = []
+    for row in rows:
+        if _has_missing_telemetry(row):
+            if current and current[-1]["local_date"] != row["local_date"]:
+                spans.append(_span("missing_telemetry", current))
+                current = []
+            current.append(row)
+        elif current:
+            spans.append(_span("missing_telemetry", current))
+            current = []
+    if current:
+        spans.append(_span("missing_telemetry", current))
+    return spans
+
+
+def _stale_telemetry_spans(rows) -> list[dict[str, Any]]:
+    spans = []
+    current = []
+    frozen_values = None
+    for row in rows:
+        values = _frozen_values(row)
+        if values is None:
+            if _is_stale_span(current):
+                spans.append(_span("stale_grobro_telemetry", current))
+            current = []
+            frozen_values = None
+            continue
+        if (
+            current
+            and row["local_date"] == current[-1]["local_date"]
+            and values == frozen_values
+        ):
+            current.append(row)
+            continue
+        if _is_stale_span(current):
+            spans.append(_span("stale_grobro_telemetry", current))
+        current = [row]
+        frozen_values = values
+    if _is_stale_span(current):
+        spans.append(_span("stale_grobro_telemetry", current))
+    return spans
+
+
+def _has_missing_telemetry(row) -> bool:
+    return any(row[field] is None for field in MISSING_FIELDS)
+
+
+def _frozen_values(row) -> tuple | None:
+    if _has_missing_telemetry(row):
+        return None
+    return tuple(row[field] for field in FROZEN_FIELDS)
+
+
+def _is_stale_span(rows) -> bool:
+    if not rows:
+        return False
+    long_enough = len(rows) >= 6 or _span_seconds(rows) >= 3600
+    return long_enough and _has_non_idle_evidence(rows)
+
+
+def _span_seconds(rows) -> float:
+    start = datetime.fromisoformat(rows[0]["timestamp"])
+    end = datetime.fromisoformat(rows[-1]["timestamp"])
+    return (end - start).total_seconds()
+
+
+def _has_non_idle_evidence(rows) -> bool:
+    targets = [row["target_power_w"] for row in rows if row["target_power_w"] is not None]
+    target_changed = bool(targets) and max(targets) - min(targets) >= 50
+    target_output_mismatch = any(
+        row["target_power_w"] is not None
+        and row["output_power_w"] is not None
+        and abs(row["target_power_w"] - row["output_power_w"]) >= 50
+        for row in rows
+    )
+    return target_changed or target_output_mismatch
+
+
+def _span(reason: str, rows) -> dict[str, Any]:
+    return {
+        "id": f"{reason}:{rows[0]['timestamp']}:{rows[-1]['timestamp']}",
+        "local_date": rows[0]["local_date"],
+        "start_timestamp": rows[0]["timestamp"],
+        "end_timestamp": rows[-1]["timestamp"],
+        "reason": reason,
+        "message": _quality_message(reason),
+        "rows": rows,
+    }
+
+
+def _quality_message(reason: str) -> str:
+    if reason == "missing_telemetry":
+        return "History contains samples with missing battery or controller telemetry."
+    if reason == "stale_grobro_telemetry":
+        return "GroBro telemetry was frozen while target power indicated active control."
+    return "History contains invalid telemetry."
+
+
+def _calibration_message(minimum_days: int, ignored: dict[str, int]) -> str:
+    base = f"Need {minimum_days} valid days."
+    ignored_message = _ignored_message(ignored)
+    return f"{base} {ignored_message}" if ignored_message else base
+
+
+def _ignored_message(ignored: dict[str, int]) -> str | None:
+    samples = ignored["ignored_invalid_samples"]
+    days = ignored["ignored_invalid_days"]
+    if not samples:
+        return None
+    return f"Ignored {samples} invalid samples across {days} days."
+
+
+def _csv_values(value: str | None) -> list[str]:
+    return [] if not value else value.split(",")
 
 
 def _bool_int(value) -> int | None:
@@ -284,6 +546,8 @@ def _hour_value(values, hour: int):
 def _hourly_actual(rows, column: str) -> list[float | None]:
     result = [None] * 24
     for row in rows:
+        if not _valid_quality(row):
+            continue
         hour = row["hour"]
         value = row[column]
         if value is not None:
@@ -294,11 +558,17 @@ def _hourly_actual(rows, column: str) -> list[float | None]:
 def _daily_actual(rows, column: str) -> dict[str, float]:
     hourly: dict[str, dict[int, float]] = defaultdict(dict)
     for row in rows:
+        if not _valid_quality(row):
+            continue
         if row[column] is not None:
             hourly[row["local_date"]][row["hour"]] = max(
                 hourly[row["local_date"]].get(row["hour"], 0), row[column]
             )
     return {day: sum(values.values()) for day, values in hourly.items()}
+
+
+def _valid_quality(row) -> bool:
+    return "quality_status" not in row.keys() or row["quality_status"] == "valid"
 
 
 def _with_error(row: dict[str, Any]) -> dict[str, Any]:

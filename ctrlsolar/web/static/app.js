@@ -1,11 +1,12 @@
 const chart = echarts.init(document.getElementById("chart"));
 const summary = document.getElementById("summary");
+const warnings = document.getElementById("warnings");
 const buttons = [...document.querySelectorAll("button[data-view]")];
 
 const hours = Array.from({ length: 24 }, (_, hour) => `${hour}:00`);
-const wh = (value) => value == null ? "N/A" : `${(value / 1000).toFixed(2)} kWh`;
-const watt = (value) => value == null ? "N/A" : `${Number(value).toFixed(0)} W`;
-const pct = (value) => value == null ? "N/A" : `${Number(value).toFixed(1)}%`;
+const wh = (value) => value == null ? "N/A" : `${formatNumber(value / 1000)} kWh`;
+const watt = (value) => value == null ? "N/A" : `${formatNumber(value)} W`;
+const pct = (value) => value == null ? "N/A" : `${formatNumber(value)}%`;
 
 function metric(label, value) {
   return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`;
@@ -27,6 +28,7 @@ function today() {
 }
 
 async function live() {
+  renderWarnings([]);
   const data = await loadJson("/api/live");
   const battery = data.battery || {};
   const controller = data.controller || {};
@@ -53,6 +55,7 @@ async function day() {
   const data = await loadJson(`/api/history/day?date=${today()}`);
   const forecast = data.forecast || [];
   const samples = data.samples || [];
+  renderWarnings((data.quality_spans || []).map(spanWarning));
 
   summary.innerHTML = [
     metric("Samples", samples.length),
@@ -72,6 +75,12 @@ async function day() {
 async function history() {
   const data = await loadJson("/api/history/range?days=30");
   const rows = data.days || [];
+  renderWarnings(rows
+    .filter((row) => row.invalid_sample_count)
+    .map((row) => {
+      const reasons = (row.quality_reasons || []).join(", ");
+      return `${row.date}: ${row.invalid_sample_count} invalid samples (${reasons}).`;
+    }));
 
   summary.innerHTML = [
     metric("Days", rows.length),
@@ -81,10 +90,10 @@ async function history() {
   ].join("");
 
   chart.setOption({
-    tooltip: { trigger: "axis" },
+    tooltip: tooltipOption(),
     legend: legendOption(),
     xAxis: { type: "category", data: rows.map((row) => row.date) },
-    yAxis: { type: "value", name: "Wh" },
+    yAxis: valueAxis("Wh"),
     series: [
       forecastLine("Forecast", rows.map((row) => row.forecast_wh)),
       actualLine("Actual solar", rows.map((row) => row.actual_wh)),
@@ -98,6 +107,7 @@ async function history() {
 async function calibration() {
   const data = await loadJson("/api/calibration");
   const factors = data.factors || Array(24).fill(1);
+  renderWarnings(calibrationWarnings(data));
 
   summary.innerHTML = [
     metric("Status", data.status || "N/A"),
@@ -112,10 +122,10 @@ async function calibration() {
 
 function hourlyOption(title, series, yName = "Wh") {
   return {
-    tooltip: { trigger: "axis" },
+    tooltip: tooltipOption(),
     legend: legendOption(),
     xAxis: { type: "category", data: hours },
-    yAxis: { type: "value", name: yName },
+    yAxis: valueAxis(yName),
     series,
     title: titleOption(title),
     grid: chartGrid(),
@@ -160,6 +170,74 @@ function legendOption() {
 
 function chartGrid() {
   return { top: 96, left: 54, right: 28, bottom: 44 };
+}
+
+function valueAxis(name) {
+  return {
+    type: "value",
+    name,
+    axisLabel: {
+      formatter: (value) => formatNumber(value),
+    },
+  };
+}
+
+function tooltipOption() {
+  return {
+    trigger: "axis",
+    formatter: (params) => {
+      const points = Array.isArray(params) ? params : [params];
+      const label = points[0]?.axisValueLabel || points[0]?.name || "";
+      const values = points.map((point) => {
+        return `${point.marker}${point.seriesName}: ${formatTooltipValue(point.value)}`;
+      });
+      return [label, ...values].join("<br>");
+    },
+    axisPointer: {
+      label: {
+        formatter: (params) => formatTooltipValue(params.value),
+      },
+    },
+  };
+}
+
+function formatNumber(value) {
+  return Number(value).toFixed(2);
+}
+
+function formatTooltipValue(value) {
+  const number = Array.isArray(value) ? value.at(-1) : value;
+  return number == null ? "N/A" : formatNumber(number);
+}
+
+function renderWarnings(items) {
+  if (!items.length) {
+    warnings.classList.remove("visible");
+    warnings.innerHTML = "";
+    return;
+  }
+  warnings.classList.add("visible");
+  warnings.innerHTML = [
+    "<strong>Data quality warning</strong>",
+    "<ul>",
+    ...items.map((item) => `<li>${item} Calibration ignores invalid samples.</li>`),
+    "</ul>",
+  ].join("");
+}
+
+function spanWarning(span) {
+  return `${shortTime(span.start_timestamp)}-${shortTime(span.end_timestamp)}: ${span.message} (${span.sample_count} samples).`;
+}
+
+function shortTime(timestamp) {
+  return timestamp ? timestamp.slice(11, 16) : "N/A";
+}
+
+function calibrationWarnings(data) {
+  if (!data.ignored_invalid_samples) return [];
+  return [
+    `${data.ignored_invalid_samples} invalid samples across ${data.ignored_invalid_days} days were ignored.`,
+  ];
 }
 
 function sum(values) {
